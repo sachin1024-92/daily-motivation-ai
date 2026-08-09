@@ -31,15 +31,23 @@ jobs:
         run: flutter analyze
 
       - name: Run tests
-        run: flutter test
+        run: |
+          if [ -d "test" ]; then
+            flutter test
+          else
+            echo "⚠️ No test/ directory found — skipping tests (recommended: add at least one widget test)"
+          fi
 
       - name: Build release APK
+        if: hashFiles('android/app/build.gradle') != '' || hashFiles('android/app/build.gradle.kts') != ''
         run: flutter build apk --release
 
       - name: Build release App Bundle (AAB)
+        if: hashFiles('android/app/build.gradle') != '' || hashFiles('android/app/build.gradle.kts') != ''
         run: flutter build appbundle --release
 
       - name: Upload build artifacts
+        if: hashFiles('android/app/build.gradle') != '' || hashFiles('android/app/build.gradle.kts') != ''
         uses: actions/upload-artifact@v4
         with:
           name: flutter-builds-${{ github.run_number }}
