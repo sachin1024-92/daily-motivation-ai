@@ -426,6 +426,7 @@ class OverlayController(
         springY.cancel()
         hideDismissTarget()
 
+        setBubbleTouchable(false)
         bindNote(repo.activeOrNewest())
         layoutPanel()
         addWindow(panelRoot, panelParams)
@@ -467,10 +468,20 @@ class OverlayController(
 
         // Pop the bubble back to its edge.
         bubbleParams.x = edgeX(side, tucked = false)
-        updateWindow(bubbleRoot, bubbleParams)
+        setBubbleTouchable(true)
         bubbleIcon.animate().setStartDelay(100).scaleX(1f).scaleY(1f).alpha(1f)
             .setDuration(380).setInterpolator(OvershootInterpolator(2.5f)).start()
         scheduleTuck()
+    }
+
+    /** The hidden bubble must not swallow taps meant for the app underneath the panel. */
+    private fun setBubbleTouchable(touchable: Boolean) {
+        bubbleParams.flags = if (touchable) {
+            bubbleParams.flags and LayoutParams.FLAG_NOT_TOUCHABLE.inv()
+        } else {
+            bubbleParams.flags or LayoutParams.FLAG_NOT_TOUCHABLE
+        }
+        updateWindow(bubbleRoot, bubbleParams)
     }
 
     private fun layoutPanel() {
@@ -670,7 +681,8 @@ class OverlayController(
             if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) return service
             val displays = service.getSystemService(Context.DISPLAY_SERVICE) as DisplayManager
             val display = displays.getDisplay(Display.DEFAULT_DISPLAY) ?: return service
-            return service.createWindowContext(display, LayoutParams.TYPE_APPLICATION_OVERLAY, null)
+            return service.createDisplayContext(display)
+                .createWindowContext(LayoutParams.TYPE_APPLICATION_OVERLAY, null)
         }
 
 

@@ -22,9 +22,9 @@ android {
     }
 
     signingConfigs {
-        if (releaseKeystore != null) {
+        releaseKeystore?.let { path ->
             create("release") {
-                storeFile = file(releaseKeystore)
+                storeFile = file(path)
                 storePassword = System.getenv("FLOATNOTE_KEYSTORE_PASSWORD")
                 keyAlias = System.getenv("FLOATNOTE_KEY_ALIAS")
                 keyPassword = System.getenv("FLOATNOTE_KEY_PASSWORD")
