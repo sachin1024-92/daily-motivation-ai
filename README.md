@@ -12,6 +12,10 @@ Built with Flutter. Designed for real daily use and future Play Store monetizati
 - **CI is now green** (analyze + tests pass)
 - Next priority: add platform folders → enable APK/AAB builds → Firebase + Play Store
 
+## 🗒️ Also in this repo: FloatNote
+
+[`floating-notepad/`](floating-notepad) contains **FloatNote**, a free, open-source Android notepad bubble that floats over any app and autosaves as you type. See its [README](floating-notepad/README.md) for downloads and build steps.
+
 ## Features
 
 - 📅 Daily inspirational quotes (local + AI-ready)
