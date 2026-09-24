@@ -38,6 +38,18 @@ jobs:
             echo "⚠️ No test/ directory found — skipping tests (recommended: add at least one widget test)"
           fi
 
+      - name: Build web app
+        if: hashFiles('web/index.html') != ''
+        run: flutter build web --release --no-web-resources-cdn
+
+      - name: Upload web build
+        if: hashFiles('web/index.html') != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: orbit-web-${{ github.run_number }}
+          path: build/web
+          retention-days: 30
+
       - name: Build release APK
         if: hashFiles('android/app/build.gradle') != '' || hashFiles('android/app/build.gradle.kts') != ''
         run: flutter build apk --release

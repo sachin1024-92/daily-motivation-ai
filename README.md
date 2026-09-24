@@ -58,8 +58,16 @@ All demo content is generated locally: people, posts and channels are fictional,
 git clone https://github.com/sachin1024-92/daily-motivation-ai.git
 cd daily-motivation-ai
 flutter pub get
-flutter run
+flutter run -d chrome        # the web target is included, so this works as-is
 ```
+
+To build a static web version you can host anywhere (GitHub Pages, Netlify, Firebase Hosting):
+
+```bash
+flutter build web --release --no-web-resources-cdn   # output in build/web
+```
+
+`--no-web-resources-cdn` bundles the CanvasKit renderer with the app instead of loading it from Google's CDN.
 
 Run the checks CI runs:
 
@@ -80,16 +88,18 @@ Without a key, Orbit AI answers with built-in offline responses.
 
 ### Enable full CI builds (APK + AAB)
 
-The repository contains only the Dart source (`lib/`). To make the GitHub Actions workflow also build a release APK and App Bundle, run this **once** on your machine:
+The repository ships the `web/` target (CI builds it on every run). To make the GitHub Actions workflow also build a release APK and App Bundle, add the mobile platform folders **once** on your machine:
 
 ```bash
 cd daily-motivation-ai
-flutter create . --platforms=android,ios,web
+flutter create . --platforms=android,ios
 # Review the generated folders, then:
-git add android ios web .metadata
+git add android ios .metadata
 git commit -m "Add platform folders so CI can build APK/AAB"
 git push
 ```
+
+`flutter_local_notifications` requires core library desugaring on Android. If the APK build asks for it, enable `isCoreLibraryDesugaringEnabled = true` in `android/app/build.gradle.kts` and add the `desugar_jdk_libs` dependency, as described in that package's README.
 
 After that, every push to `main` produces downloadable APK and AAB artifacts. `share_plus` needs Java 17 and a recent Android Gradle Plugin, which the current `flutter create` templates already use.
 
@@ -100,6 +110,7 @@ After that, every push to `main` produces downloadable APK and AAB artifacts. `s
 - [x] Orbit: unified feed, stories, reels, watch, chats, groups, channels
 - [x] Omni-post composer and share-to-anywhere
 - [x] Linked worlds and OS share-sheet hand-off
+- [x] Web target with Orbit icons and splash, built in CI
 - [ ] Firebase Auth + Firestore realtime chats and feed
 - [ ] Real photo/video capture and upload
 - [ ] Live Grok streaming responses
