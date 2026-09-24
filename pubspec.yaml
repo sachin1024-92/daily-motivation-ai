@@ -1,12 +1,12 @@
 name: daily_motivation_ai
-description: Grok-powered daily motivation app with quotes, habits, focus timers and AI encouragement. Built in Flutter.
+description: Orbit - one trendy social super-app that blends feeds, stories, reels, video, chats and channels with an AI coach and mindful wellbeing tools. Built in Flutter.
 
 publish_to: 'none'
 
-version: 1.0.0+1
+version: 2.0.0+2
 
 environment:
-  sdk: '>=3.3.0 <4.0.0'
+  sdk: '>=3.10.0 <4.0.0'
 
 dependencies:
   flutter:
@@ -17,6 +17,8 @@ dependencies:
   http: ^1.2.1
   cupertino_icons: ^1.0.6
   flutter_local_notifications: ^17.2.1+2
+  share_plus: ^13.3.0
+  url_launcher: ^6.3.2
 
   # Firebase (uncomment and configure when ready)
   # firebase_core: ^3.2.0
