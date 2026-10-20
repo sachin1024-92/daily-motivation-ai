@@ -1,0 +1,55 @@
+# vlab configuration (~/.config/vlab/vlab.conf). This file is bash.
+# `vlab setup` writes one for you. This example shows every option.
+
+# Where Claude works, and where job logs go (.vlab/runs inside it).
+VLAB_WORKSPACE="$HOME/vlab-work"
+# Or on the shared network drive, inside YOUR OWN folder only, e.g.:
+# VLAB_WORKSPACE="/mnt/vlsi_share/students/<your-roll-no>/vlab-work"
+
+# The college-wide shared drive (used by `vlab doctor` and tool auto-detection).
+VLAB_NETDRIVE="/mnt/vlsi_share"
+
+# Campus proxy, if the lab PC needs one to reach the internet (Claude needs
+# api.anthropic.com and claude.ai).
+VLAB_HTTPS_PROXY=""
+# VLAB_HTTPS_PROXY="http://proxy.example.ac.in:3128"
+
+# Scripts that set up the EDA tools. Use the ones your ~/.cshrc or ~/.bashrc
+# already sources, or ask the lab admin. csh/tcsh scripts (*.csh, *cshrc*) are
+# run in tcsh and their variables are imported. Other scripts are sourced in bash.
+VLAB_ENV_SCRIPTS=(
+  # "/cad/cadence/cshrc.cadence"
+  # "/cad/synopsys/sentaurus/setup.csh"
+)
+
+# Extra bin directories to put on PATH (`vlab setup` fills in what it finds).
+VLAB_EXTRA_PATH=(
+  # "/cad/synopsys/sentaurus/T-2022.03/bin"
+  # "/cad/cadence/SPECTRE211/bin"
+  # "/cad/cadence/IC618/tools/dfII/bin"
+  # "/cad/cadence/XCELIUM2203/tools/bin"
+)
+
+# Extra environment variables (NAME=value).
+VLAB_EXPORTS=(
+  # "STROOT=/cad/synopsys/sentaurus/T-2022.03"
+  # "STRELEASE=T-2022.03"
+  # "SNPSLMD_LICENSE_FILE=27020@licserver"
+  # "CDS_LIC_FILE=5280@licserver"
+  # "LM_LICENSE_FILE=5280@licserver"
+)
+
+# Command for `vlab swb <project>` (Sentaurus Workbench batch). Check `gsub -h`.
+VLAB_SWB_CMD="gsub -e all"
+
+# tmux session name for `vlab remote`.
+VLAB_REMOTE_SESSION="vlab-remote"
+# Name shown in the Claude app (default: "VLSI lab <hostname>").
+VLAB_REMOTE_NAME=""
+# Extra flags for `claude remote-control` (see `claude remote-control --help`), e.g.
+#   VLAB_REMOTE_ARGS=(--permission-mode acceptEdits)   # don't ask before each file edit
+VLAB_REMOTE_ARGS=()
+
+# How long `vlab wait` / `-w` blocks before it returns "still running" (seconds).
+# Keep it under 600 so it fits in one Claude tool call.
+VLAB_WAIT_TIMEOUT=540

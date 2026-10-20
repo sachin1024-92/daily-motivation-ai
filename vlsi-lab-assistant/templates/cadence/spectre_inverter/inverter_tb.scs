@@ -1,0 +1,24 @@
+// CMOS inverter testbench - plain Spectre, no PDK needed
+// Run:  vlab spectre -w inverter_tb.scs   then   vlab psf2csv inverter_tb.raw
+// The level-1 models below are only for checking the toolchain. Use your
+// PDK's models (include "<pdk>/models/spectre/xxx.scs" section=tt) for real work.
+simulator lang=spectre
+global 0
+
+parameters vdd=1.8 cl=10f
+
+model nch mos1 type=n vto=0.45  kp=200u lambda=0.05
+model pch mos1 type=p vto=-0.45 kp=80u  lambda=0.05
+
+VDD (vdd 0) vsource dc=vdd
+VIN (in 0)  vsource type=pulse val0=0 val1=vdd delay=1n rise=50p fall=50p width=2n period=4n
+
+MP (out in vdd vdd) pch w=2u l=180n
+MN (out in 0   0)   nch w=1u l=180n
+CL (out 0) capacitor c=cl
+
+opts  options temp=27 reltol=1e-4
+dcOp  dc
+tran1 tran stop=10n maxstep=10p
+
+save in out VDD:p

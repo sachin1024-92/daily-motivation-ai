@@ -1,0 +1,41 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(vlab:*)",
+      "Bash(sde -e:*)",
+      "Bash(sdevice:*)",
+      "Bash(sprocess:*)",
+      "Bash(svisual -b:*)",
+      "Bash(inspect -batch:*)",
+      "Bash(spectre:*)",
+      "Bash(xrun:*)",
+      "Bash(python3:*)",
+      "Bash(ls:*)",
+      "Bash(cat:*)",
+      "Bash(head:*)",
+      "Bash(tail:*)",
+      "Bash(grep:*)",
+      "Bash(find:*)",
+      "Bash(wc:*)",
+      "Bash(du:*)",
+      "Bash(df:*)",
+      "Bash(command -v:*)",
+      "Bash(mkdir:*)",
+      "Bash(cp:*)"
+    ],
+    "ask": [
+      "Bash(rm:*)",
+      "Bash(mv:*)",
+      "Bash(chmod:*)",
+      "Bash(crontab:*)",
+      "Bash(vlab clean:*)",
+      "Bash(vlab remote:*)"
+    ],
+    "deny": [
+      "Read(~/.ssh/**)",
+      "Read(~/.claude/.credentials.json)",
+      "Bash(rm -rf /:*)",
+      "Bash(sudo:*)"
+    ]
+  }
+}

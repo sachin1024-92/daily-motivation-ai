@@ -1,0 +1,709 @@
+#!/usr/bin/env bash
+# vlab - VLSI lab assistant: runs Synopsys Sentaurus / Cadence tools in batch
+# mode with logging, and keeps a Claude Code session reachable from the
+# Claude app (Remote Control) so you can work on the lab machine remotely.
+#
+# Works without root. Targets bash >= 4.2 (RHEL/CentOS 7 and newer).
+
+set -o pipefail
+
+VLAB_VERSION="1.0.0"
+VLAB_HOME="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/.." && pwd)"
+VLAB_CONFIG_DIR="${VLAB_CONFIG_DIR:-${XDG_CONFIG_HOME:-$HOME/.config}/vlab}"
+VLAB_CONFIG="${VLAB_CONFIG:-$VLAB_CONFIG_DIR/vlab.conf}"
+
+# ---------------------------------------------------------------- output ----
+if [ -t 1 ]; then
+  C_RED=$'\e[31m'; C_GRN=$'\e[32m'; C_YLW=$'\e[33m'; C_BLU=$'\e[34m'; C_OFF=$'\e[0m'
+else
+  C_RED=""; C_GRN=""; C_YLW=""; C_BLU=""; C_OFF=""
+fi
+info()  { printf '%s\n' "${C_BLU}::${C_OFF} $*"; }
+ok()    { printf '%s\n' "  ${C_GRN}[ ok ]${C_OFF} $*"; }
+warn()  { printf '%s\n' "  ${C_YLW}[warn]${C_OFF} $*"; }
+bad()   { printf '%s\n' "  ${C_RED}[FAIL]${C_OFF} $*"; }
+die()   { printf '%s\n' "${C_RED}vlab: $*${C_OFF}" >&2; exit 1; }
+have()  { command -v "$1" >/dev/null 2>&1; }
+
+# ---------------------------------------------------------------- config ----
+# Defaults; overridden by the config file (see config/vlab.conf.example).
+VLAB_WORKSPACE="$HOME/vlab-work"
+VLAB_NETDRIVE=""
+VLAB_RUNS_DIR=""
+VLAB_ENV_SCRIPTS=()
+VLAB_EXTRA_PATH=()
+VLAB_EXPORTS=()
+VLAB_HTTPS_PROXY=""
+VLAB_REMOTE_SESSION="vlab-remote"
+VLAB_REMOTE_NAME=""
+VLAB_REMOTE_ARGS=()
+VLAB_SWB_CMD="gsub -e all"
+VLAB_WAIT_TIMEOUT=540
+
+load_config() {
+  if [ -f "$VLAB_CONFIG" ]; then
+    # shellcheck disable=SC1090
+    . "$VLAB_CONFIG" || die "error while reading $VLAB_CONFIG"
+  fi
+  [ -n "$VLAB_RUNS_DIR" ] || VLAB_RUNS_DIR="$VLAB_WORKSPACE/.vlab/runs"
+}
+
+# --------------------------------------------------------- tool environment --
+# Import variables set by a csh/tcsh setup script (most EDA installs ship
+# .cshrc-style setup files) into the current bash process.
+import_csh_env() {
+  local file="$1" shell kv key
+  shell="$(command -v tcsh || command -v csh)" || { warn "no csh/tcsh to source $file"; return 1; }
+  while IFS= read -r -d '' kv; do
+    key="${kv%%=*}"
+    case "$key" in
+      ''|PWD|OLDPWD|SHLVL|_|PS1|PROMPT|TERM|SHELL|HOME|USER|LOGNAME|HOST|HOSTTYPE|OSTYPE|MACHTYPE|VENDOR|GROUP|REMOTEHOST) continue ;;
+      *[!A-Za-z0-9_]*) continue ;;
+    esac
+    export "$key=${kv#*=}"
+  done < <("$shell" -f -c "source '$file' >& /dev/null; env -0" 2>/dev/null)
+}
+
+load_tool_env() {
+  [ -n "${VLAB_ENV_LOADED:-}" ] && return 0
+  local s p
+  for s in "${VLAB_ENV_SCRIPTS[@]}"; do
+    if [ ! -r "$s" ]; then
+      warn "env script not readable: $s" >&2; continue
+    fi
+    case "$s" in
+      *csh*) import_csh_env "$s" ;;
+      *) # shellcheck disable=SC1090
+         . "$s" >/dev/null 2>&1 || warn "env script returned an error: $s" >&2 ;;
+    esac
+  done
+  for p in "${VLAB_EXTRA_PATH[@]}"; do
+    [ -d "$p" ] && case ":$PATH:" in *":$p:"*) ;; *) PATH="$p:$PATH" ;; esac
+  done
+  export PATH
+  for p in "${VLAB_EXPORTS[@]}"; do export "${p?}"; done
+  if [ -n "$VLAB_HTTPS_PROXY" ]; then
+    export HTTPS_PROXY="$VLAB_HTTPS_PROXY" https_proxy="$VLAB_HTTPS_PROXY"
+    export HTTP_PROXY="$VLAB_HTTPS_PROXY" http_proxy="$VLAB_HTTPS_PROXY"
+  fi
+  export VLAB_ENV_LOADED=1 VLAB_HOME VLAB_WORKSPACE VLAB_RUNS_DIR
+  export PATH="$VLAB_HOME/bin:$PATH"
+}
+
+cmd_env() {
+  # Print the environment changes as shell code: eval "$(vlab env)"
+  local -A before
+  local kv key
+  while IFS= read -r -d '' kv; do before["${kv%%=*}"]="${kv#*=}"; done < <(env -0)
+  load_tool_env 2>/dev/null
+  while IFS= read -r -d '' kv; do
+    key="${kv%%=*}"
+    case "$key" in *[!A-Za-z0-9_]*|'') continue ;; esac
+    if [ -z "${before[$key]+x}" ] || [ "${before[$key]}" != "${kv#*=}" ]; then
+      printf 'export %s=%q\n' "$key" "${kv#*=}"
+    fi
+  done < <(env -0)
+}
+
+# ------------------------------------------------------------------ jobs ----
+# Each job gets a directory under $VLAB_RUNS_DIR:
+#   cmd  cwd  host  start  pid  log  exit_code (when finished)  end
+new_job_id() {
+  local name="$1"
+  name="$(printf '%s' "$name" | tr -c 'A-Za-z0-9_.-' '_' | cut -c1-40)"
+  printf '%s-%s' "$(date +%Y%m%d-%H%M%S)" "$name"
+}
+
+job_dir() {
+  local id="$1"
+  [ -n "$id" ] || id="$(ls -1 "$VLAB_RUNS_DIR" 2>/dev/null | tail -n 1)"
+  [ -n "$id" ] || die "no jobs yet"
+  if [ -d "$VLAB_RUNS_DIR/$id" ]; then printf '%s' "$VLAB_RUNS_DIR/$id"; return; fi
+  # allow unique prefix / suffix match
+  local m="" c
+  for c in "$VLAB_RUNS_DIR"/*"$id"*/; do [ -d "$c" ] && m="${c%/}"; done
+  [ -n "$m" ] || die "no job matching '$id'"
+  printf '%s' "$m"
+}
+
+job_status() {
+  local d="$1" pid
+  if [ -f "$d/exit_code" ]; then
+    local rc; rc="$(cat "$d/exit_code")"
+    if [ "$rc" = 0 ]; then printf 'done'; else printf 'failed(%s)' "$rc"; fi
+    return
+  fi
+  pid="$(cat "$d/pid" 2>/dev/null)"
+  if [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null; then printf 'running'; else printf 'lost'; fi
+}
+
+fmt_secs() { local s=$1; printf '%02d:%02d:%02d' $((s/3600)) $((s%3600/60)) $((s%60)); }
+
+job_elapsed() {
+  local d="$1" start end
+  start="$(cat "$d/start" 2>/dev/null || echo 0)"
+  end="$(cat "$d/end" 2>/dev/null || date +%s)"
+  fmt_secs $((end - start))
+}
+
+# vlab run [--name N] [--dir D] [--wait] [--timeout S] -- command args...
+cmd_run() {
+  local name="" dir="$PWD" wait=0 timeout="$VLAB_WAIT_TIMEOUT"
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      -n|--name) name="$2"; shift 2 ;;
+      -d|--dir) dir="$2"; shift 2 ;;
+      -w|--wait) wait=1; shift ;;
+      -t|--timeout) timeout="$2"; shift 2 ;;
+      --) shift; break ;;
+      -*) die "run: unknown option $1" ;;
+      *) break ;;
+    esac
+  done
+  [ $# -gt 0 ] || die "usage: vlab run [--name N] [--dir D] [--wait] -- command args..."
+  dir="$(cd "$dir" 2>/dev/null && pwd)" || die "no such directory: $dir"
+  [ -n "$name" ] || name="$(basename "$1")"
+  load_tool_env
+  have "$1" || [ -x "$1" ] || warn "'$1' is not on PATH - check 'vlab doctor' / VLAB_EXTRA_PATH" >&2
+
+  mkdir -p "$VLAB_RUNS_DIR" || die "cannot create $VLAB_RUNS_DIR"
+  local id d
+  id="$(new_job_id "$name")"
+  d="$VLAB_RUNS_DIR/$id"
+  while [ -e "$d" ]; do sleep 1; id="$(new_job_id "$name")"; d="$VLAB_RUNS_DIR/$id"; done
+  mkdir -p "$d"
+  printf '%q ' "$@" >"$d/cmd"; echo >>"$d/cmd"
+  printf '%s\n' "$dir" >"$d/cwd"
+  hostname >"$d/host" 2>/dev/null
+  date +%s >"$d/start"
+
+  # The job runs in its own session so it survives the terminal / Claude
+  # session that started it, and can be killed as a whole process group.
+  local runner='echo $$ > "$VLAB_JOB/pid"; cd "$VLAB_JOB_CWD" || exit 97
+    "$@"; rc=$?; date +%s > "$VLAB_JOB/end"; echo $rc > "$VLAB_JOB/exit_code"'
+  VLAB_JOB="$d" VLAB_JOB_CWD="$dir" setsid nohup bash -c "$runner" vlab-job "$@" \
+    >"$d/log" 2>&1 </dev/null &
+  local i=0
+  while [ ! -s "$d/pid" ] && [ $i -lt 50 ]; do sleep 0.1; i=$((i+1)); done
+
+  echo "job:    $id"
+  echo "dir:    $dir"
+  echo "log:    $d/log"
+  if [ $wait = 1 ]; then cmd_wait "$id" "$timeout"; fi
+}
+
+cmd_jobs() {
+  local n="${1:-20}" d id
+  [ -d "$VLAB_RUNS_DIR" ] || { echo "no jobs yet ($VLAB_RUNS_DIR)"; return; }
+  printf '%-40s %-11s %-9s %s\n' "JOB" "STATUS" "ELAPSED" "COMMAND"
+  for d in $(ls -1d "$VLAB_RUNS_DIR"/*/ 2>/dev/null | tail -n "$n"); do
+    d="${d%/}"; id="$(basename "$d")"
+    printf '%-40s %-11s %-9s %s\n' "$id" "$(job_status "$d")" "$(job_elapsed "$d")" \
+      "$(cut -c1-70 "$d/cmd" 2>/dev/null)"
+  done
+}
+
+cmd_log() {
+  local follow=0 lines=60 id=""
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      -f|--follow) follow=1; shift ;;
+      -n) lines="$2"; shift 2 ;;
+      *) id="$1"; shift ;;
+    esac
+  done
+  local d; d="$(job_dir "$id")" || exit 1
+  if [ $follow = 1 ]; then tail -n "$lines" -f "$d/log"; else tail -n "$lines" "$d/log"; fi
+}
+
+cmd_wait() {
+  local d timeout="${2:-$VLAB_WAIT_TIMEOUT}" t=0
+  d="$(job_dir "${1:-}")" || exit 1
+  while [ "$(job_status "$d")" = running ] && [ "$t" -lt "$timeout" ]; do
+    sleep 2; t=$((t+2))
+  done
+  local st; st="$(job_status "$d")"
+  echo "status: $st  (elapsed $(job_elapsed "$d"))"
+  echo "---- last 40 lines of $d/log ----"
+  tail -n 40 "$d/log"
+  case "$st" in
+    done) return 0 ;;
+    running) echo "---- still running; check again with: vlab wait $(basename "$d") ----"; return 3 ;;
+    *) return 1 ;;
+  esac
+}
+
+cmd_kill() {
+  local d pid; d="$(job_dir "${1:-}")" || exit 1
+  pid="$(cat "$d/pid" 2>/dev/null)"
+  [ -n "$pid" ] || die "no pid recorded"
+  if kill -TERM -- "-$pid" 2>/dev/null || kill -TERM "$pid" 2>/dev/null; then
+    sleep 2
+    kill -KILL -- "-$pid" 2>/dev/null
+    [ -f "$d/exit_code" ] || { echo 143 >"$d/exit_code"; date +%s >"$d/end"; }
+    echo "killed $(basename "$d")"
+  else
+    echo "job is not running"
+  fi
+}
+
+cmd_show() {
+  local d; d="$(job_dir "${1:-}")" || exit 1
+  echo "job:     $(basename "$d")"
+  echo "status:  $(job_status "$d")"
+  echo "elapsed: $(job_elapsed "$d")"
+  echo "host:    $(cat "$d/host" 2>/dev/null)"
+  echo "cwd:     $(cat "$d/cwd")"
+  echo "command: $(cat "$d/cmd")"
+  echo "log:     $d/log"
+  echo "errors/warnings in log:"
+  grep -n -i -E 'error|fatal|abort|license|warning' "$d/log" | head -n 25 | sed 's/^/  /'
+}
+
+cmd_clean() {
+  local days="${1:-30}"
+  [ -d "$VLAB_RUNS_DIR" ] || return 0
+  find "$VLAB_RUNS_DIR" -mindepth 1 -maxdepth 1 -type d -mtime +"$days" -print \
+    -exec rm -rf {} + 2>/dev/null
+  echo "removed job records older than $days days from $VLAB_RUNS_DIR"
+}
+
+# ------------------------------------------------------ tool shortcuts -----
+# Thin wrappers that build the usual batch command line for each tool and
+# hand it to `vlab run`. Extra flags after the file are passed to the tool.
+need_file() { [ -n "${1:-}" ] || die "missing input file"; [ -e "$1" ] || die "no such file: $1"; }
+
+run_tool() {
+  # run_tool <name> <file> -- cmd...   (runs in the input file's directory)
+  local name="$1" file="$2"; shift 3
+  local wait_flag=()
+  [ "${VLAB_WAIT:-0}" = 1 ] && wait_flag=(--wait)
+  cmd_run --name "$name" --dir "$(dirname "$file")" "${wait_flag[@]}" -- "$@"
+}
+
+tool_cmd() {
+  local tool="$1"; shift
+  local wait=0
+  if [ "${1:-}" = "-w" ] || [ "${1:-}" = "--wait" ]; then wait=1; shift; fi
+  export VLAB_WAIT=$wait
+  local f="${1:-}"
+  case "$tool" in
+    sde)      need_file "$f"; shift; run_tool sde "$f" -- sde -e -l "$(basename "$f")" "$@" ;;
+    sdevice)  need_file "$f"; shift; run_tool sdevice "$f" -- sdevice "$(basename "$f")" "$@" ;;
+    sprocess) need_file "$f"; shift; run_tool sprocess "$f" -- sprocess "$(basename "$f")" "$@" ;;
+    svisual)  need_file "$f"; shift; run_tool svisual "$f" -- svisual -b "$(basename "$f")" "$@" ;;
+    inspect)  need_file "$f"; shift; run_tool inspect "$f" -- inspect -batch -f "$(basename "$f")" "$@" ;;
+    swb)      need_file "$f"; shift
+              local w=(); [ $wait = 1 ] && w=(--wait)
+              # shellcheck disable=SC2086
+              cmd_run --name swb --dir "$f" "${w[@]}" -- $VLAB_SWB_CMD "$(cd "$f" && pwd)" "$@" ;;
+    spectre)  need_file "$f"; shift
+              run_tool spectre "$f" -- spectre +escchars -format psfascii \
+                -raw "$(basename "${f%.*}").raw" +log "$(basename "${f%.*}").spectre.log" "$(basename "$f")" "$@" ;;
+    ocean)    need_file "$f"; shift; run_tool ocean "$f" -- ocean -nograph -replay "$(basename "$f")" "$@" ;;
+    skill)    need_file "$f"; shift
+              run_tool virtuoso "$f" -- virtuoso -nograph -replay "$(basename "$f")" -log "$(basename "${f%.*}").CDS.log" "$@" ;;
+    genus)    need_file "$f"; shift; run_tool genus "$f" -- genus -batch -files "$(basename "$f")" "$@" ;;
+    innovus)  need_file "$f"; shift; run_tool innovus "$f" -- innovus -no_gui -files "$(basename "$f")" "$@" ;;
+    xrun)     [ $# -gt 0 ] || die "usage: vlab xrun <files/options...>"
+              local w=(); [ $wait = 1 ] && w=(--wait)
+              cmd_run --name xrun "${w[@]}" -- xrun "$@" ;;
+  esac
+}
+
+# ---------------------------------------------------------------- doctor ----
+check_tool() {
+  local t="$1" label="$2" p
+  if p="$(command -v "$t" 2>/dev/null)"; then ok "$label: $p"; else warn "$label: '$t' not found"; fi
+}
+
+cmd_doctor() {
+  echo "vlab $VLAB_VERSION  (installed at $VLAB_HOME)"
+  info "System"
+  ok "host $(hostname), user $(id -un), $(uname -sr)"
+  [ -r /etc/os-release ] && ok "$(. /etc/os-release; echo "${PRETTY_NAME:-$NAME}")"
+  local glibc; glibc="$(ldd --version 2>/dev/null | head -n1 | grep -oE '[0-9]+\.[0-9]+$')"
+  if [ -n "$glibc" ]; then
+    if [ "$(printf '%s\n2.28\n' "$glibc" | sort -V | head -n1)" = "2.28" ]; then
+      ok "glibc $glibc"
+    else
+      warn "glibc $glibc is old; the Claude Code native binary may not run (see README > Old OS)"
+    fi
+  fi
+  for t in tmux python3 tcsh git curl; do check_tool "$t" "$t"; done
+
+  info "Config"
+  if [ -f "$VLAB_CONFIG" ]; then ok "config: $VLAB_CONFIG"; else warn "no config yet - run: vlab setup"; fi
+  if [ -d "$VLAB_WORKSPACE" ] && [ -w "$VLAB_WORKSPACE" ]; then
+    ok "workspace: $VLAB_WORKSPACE (writable, $(df -hP "$VLAB_WORKSPACE" | awk 'NR==2{print $4" free"}'))"
+  else
+    bad "workspace missing or not writable: $VLAB_WORKSPACE"
+  fi
+  if [ -n "$VLAB_NETDRIVE" ]; then
+    if [ -d "$VLAB_NETDRIVE" ]; then
+      local fs; fs="$(df -TP "$VLAB_NETDRIVE" 2>/dev/null | awk 'NR==2{print $2}')"
+      ok "network drive: $VLAB_NETDRIVE (fs: ${fs:-?}$( [ -w "$VLAB_NETDRIVE" ] && echo ', writable' || echo ', read-only for you'))"
+    else
+      bad "network drive not mounted: $VLAB_NETDRIVE"
+    fi
+  fi
+  local hperm; hperm="$(stat -c '%a' "$HOME" 2>/dev/null)"
+  case "$hperm" in
+    *[0-7][1-7]) warn "home directory is readable by others (mode $hperm). Claude login tokens live in ~/.claude; consider: chmod 700 ~/.claude" ;;
+    *) ok "home directory mode $hperm" ;;
+  esac
+  [ -d "$HOME/.claude" ] && [ "$(stat -c '%a' "$HOME/.claude")" != 700 ] && warn "$HOME/.claude is not private - run: chmod 700 ~/.claude"
+
+  info "EDA tools (after loading tool environment)"
+  load_tool_env 2>/dev/null
+  for t in sde sdevice sprocess svisual swb gsub inspect; do check_tool "$t" "Sentaurus $t"; done
+  for t in virtuoso spectre ocean xrun genus innovus; do check_tool "$t" "Cadence $t"; done
+  for t in calibre pegasus; do have "$t" && check_tool "$t" "$t"; done
+  [ -n "${STROOT:-}" ] && ok "STROOT=$STROOT"
+  [ -n "${CDSHOME:-${CDS_INST_DIR:-}}" ] && ok "Cadence home=${CDSHOME:-$CDS_INST_DIR}"
+
+  info "Licenses"
+  local v any=0
+  for v in LM_LICENSE_FILE SNPSLMD_LICENSE_FILE CDS_LIC_FILE; do
+    if [ -n "${!v:-}" ]; then ok "$v=${!v}"; any=1; fi
+  done
+  [ $any = 1 ] || warn "no license variables set (LM_LICENSE_FILE / SNPSLMD_LICENSE_FILE / CDS_LIC_FILE)"
+  local lic
+  for lic in ${SNPSLMD_LICENSE_FILE//:/ } ${CDS_LIC_FILE//:/ } ${LM_LICENSE_FILE//:/ }; do
+    case "$lic" in
+      *@*) local port="${lic%@*}" host="${lic#*@}"
+           if timeout 3 bash -c "echo > /dev/tcp/$host/$port" 2>/dev/null; then ok "license server $lic reachable"
+           else warn "license server $lic not reachable from here"; fi ;;
+    esac
+  done
+
+  info "Claude Code"
+  if have claude; then
+    ok "claude: $(command -v claude) ($(claude --version 2>/dev/null | head -n1))"
+    if [ -f "$HOME/.claude/.credentials.json" ] || [ -n "${ANTHROPIC_API_KEY:-}" ]; then ok "credentials present"
+    else warn "not logged in yet? run 'claude' once and use /login"; fi
+  else
+    bad "claude not installed - run: vlab setup  (or see README)"
+  fi
+  if have curl; then
+    if curl -sS -m 8 -o /dev/null -w '%{http_code}' https://api.anthropic.com 2>/dev/null | grep -qE '^[2-4]'; then
+      ok "can reach api.anthropic.com"
+    else
+      bad "cannot reach api.anthropic.com - campus proxy? set VLAB_HTTPS_PROXY in the config"
+    fi
+  fi
+  info "Remote control"
+  remote_status
+}
+
+# ---------------------------------------------------------------- remote ----
+# Keeps `claude remote-control` running inside tmux (or screen) so it
+# survives logout. Open the Claude app -> Code to drive it from anywhere.
+remote_running() {
+  if have tmux && tmux has-session -t "$VLAB_REMOTE_SESSION" 2>/dev/null; then return 0; fi
+  if have screen && screen -ls 2>/dev/null | grep -q "\.${VLAB_REMOTE_SESSION}[[:space:]]"; then return 0; fi
+  return 1
+}
+
+remote_status() {
+  if remote_running; then
+    ok "remote session '$VLAB_REMOTE_SESSION' is running (vlab remote attach to look at it)"
+  else
+    warn "remote session is not running (start with: vlab remote start)"
+  fi
+}
+
+cmd_remote() {
+  local sub="${1:-status}"; shift || true
+  local dir="${1:-$VLAB_WORKSPACE}"
+  case "$sub" in
+    start|ensure)
+      if remote_running; then
+        [ "$sub" = start ] && echo "already running - 'vlab remote attach' to view, 'vlab remote restart' to restart"
+        return 0
+      fi
+      have claude || die "claude is not installed (vlab setup)"
+      [ -d "$dir" ] || die "no such directory: $dir"
+      mkdir -p "$VLAB_CONFIG_DIR"
+      local launch
+      # Login shells can reset PATH, so pin the claude/vlab locations found now.
+      local claude_bin; claude_bin="$(command -v claude)"
+      launch="cd $(printf '%q' "$dir") && export PATH=$(printf '%q' "$VLAB_HOME/bin:$(dirname "$claude_bin")"):\$PATH && eval \"\$(vlab env)\" && "
+      local rc_args=(--name "${VLAB_REMOTE_NAME:-VLSI lab $(hostname -s 2>/dev/null || hostname)}" "${VLAB_REMOTE_ARGS[@]}")
+      launch+="while true; do $(printf '%q' "$claude_bin") remote-control $(printf '%q ' "${rc_args[@]}"); echo \"[vlab] claude exited (\$?) at \$(date); restarting in 30s\"; sleep 30; done"
+      if have tmux; then
+        tmux new-session -d -s "$VLAB_REMOTE_SESSION" -x 200 -y 50 "bash -lc $(printf '%q' "$launch")"
+        tmux pipe-pane -t "$VLAB_REMOTE_SESSION" -o "cat >> $(printf '%q' "$VLAB_CONFIG_DIR/remote.log")"
+      elif have screen; then
+        screen -dmS "$VLAB_REMOTE_SESSION" -L -Logfile "$VLAB_CONFIG_DIR/remote.log" bash -lc "$launch"
+      else
+        die "need tmux or screen to keep the session alive (ask the lab admin, or build tmux in ~/.local)"
+      fi
+      sleep 3
+      remote_running || die "failed to start; see $VLAB_CONFIG_DIR/remote.log"
+      echo "Remote Control started in $dir"
+      echo "Open the Claude app (or claude.ai/code) -> Code; the session for '$(hostname)' should appear."
+      echo "First time? run 'vlab remote attach' to see if it is asking you to log in or trust the folder." ;;
+    stop)
+      if have tmux && tmux has-session -t "$VLAB_REMOTE_SESSION" 2>/dev/null; then tmux kill-session -t "$VLAB_REMOTE_SESSION"; fi
+      if have screen; then screen -S "$VLAB_REMOTE_SESSION" -X quit >/dev/null 2>&1; fi
+      echo "stopped" ;;
+    restart) cmd_remote stop; sleep 1; cmd_remote start "$dir" ;;
+    attach)
+      remote_running || die "not running"
+      echo "(detach without stopping: Ctrl-b then d)"; sleep 1
+      if have tmux && tmux has-session -t "$VLAB_REMOTE_SESSION" 2>/dev/null; then tmux attach -t "$VLAB_REMOTE_SESSION"
+      else screen -r "$VLAB_REMOTE_SESSION"; fi ;;
+    log) tail -n "${1:-80}" "$VLAB_CONFIG_DIR/remote.log" 2>/dev/null | sed 's/\x1b\[[0-9;?]*[A-Za-z]//g' ;;
+    status) remote_status ;;
+    autostart)
+      have crontab || die "crontab not available for your user"
+      local line="*/10 * * * * $VLAB_HOME/bin/vlab remote ensure >/dev/null 2>&1"
+      local boot="@reboot sleep 60; $VLAB_HOME/bin/vlab remote ensure >/dev/null 2>&1"
+      { crontab -l 2>/dev/null | grep -v 'vlab remote ensure'; echo "$boot"; echo "$line"; } | crontab - \
+        && echo "installed cron entries: remote session restarts after reboot and is checked every 10 min" ;;
+    no-autostart)
+      crontab -l 2>/dev/null | grep -v 'vlab remote ensure' | crontab - && echo "removed vlab cron entries" ;;
+    *) die "usage: vlab remote start|stop|restart|status|attach|log|autostart|no-autostart [dir]" ;;
+  esac
+}
+
+# ----------------------------------------------------------------- setup ----
+ask() { # ask "question" default -> echoes answer
+  local q="$1" def="${2:-}" a
+  if [ -t 0 ]; then read -r -p "$q${def:+ [$def]}: " a; fi
+  printf '%s' "${a:-$def}"
+}
+
+detect_tool_dirs() {
+  local roots=() r
+  for r in /cad /tools /eda /opt/cadence /opt/synopsys /opt/eda /usr/local/cadence /usr/local/synopsys \
+           /home/cadence /home/synopsys /cadence /synopsys /software /apps "$VLAB_NETDRIVE"; do
+    [ -n "$r" ] && [ -d "$r" ] && roots+=("$r")
+  done
+  [ ${#roots[@]} -gt 0 ] || return 0
+  timeout 60 find "${roots[@]}" -maxdepth 7 -type f \
+    \( -name sdevice -o -name sde -o -name gsub -o -name virtuoso -o -name spectre -o -name xrun \
+       -o -name genus -o -name innovus -o -name ocean -o -name calibre \) -perm -u+x 2>/dev/null \
+    | xargs -r -n1 dirname | sort -u
+}
+
+detect_env_scripts() {
+  local r
+  for r in /cad /tools /eda /opt/cadence /opt/synopsys /etc/profile.d "$HOME" "$VLAB_NETDRIVE"; do
+    [ -n "$r" ] && [ -d "$r" ] || continue
+    timeout 30 find "$r" -maxdepth 4 -type f \( -iname '*cadence*rc*' -o -iname '*synopsys*rc*' \
+      -o -iname '*sentaurus*' -o -iname '*cshrc*' -o -iname 'setup*.csh' -o -iname 'setup*.sh' \
+      -o -iname '*cds*.sh' -o -iname '*cds*.csh' \) -size -200k 2>/dev/null
+  done | grep -v -E '/\.claude/|/vlab' | head -n 30
+}
+
+install_claude() {
+  if have claude; then ok "Claude Code already installed: $(command -v claude)"; return 0; fi
+  info "Installing Claude Code into your home directory (no root needed)"
+  if have curl; then
+    curl -fsSL https://claude.ai/install.sh | bash && export PATH="$HOME/.local/bin:$PATH"
+  fi
+  if ! have claude && have npm; then
+    warn "native installer failed; trying npm (user prefix ~/.npm-global)"
+    npm config set prefix "$HOME/.npm-global" >/dev/null
+    npm install -g @anthropic-ai/claude-code && export PATH="$HOME/.npm-global/bin:$PATH"
+  fi
+  have claude && ok "installed: $(command -v claude)" || bad "could not install Claude Code - see README > Installing Claude Code manually"
+}
+
+install_workspace_files() {
+  local ws="$1"
+  mkdir -p "$ws/.claude/skills" "$ws/projects" "$ws/.vlab/runs"
+  local src="$VLAB_HOME/claude"
+  if [ -f "$ws/CLAUDE.md" ] && ! grep -q 'vlab-managed' "$ws/CLAUDE.md"; then
+    cp "$src/CLAUDE.md" "$ws/CLAUDE.vlab.md"
+    warn "kept your existing $ws/CLAUDE.md; vlab's version written to CLAUDE.vlab.md (add '@CLAUDE.vlab.md' to yours)"
+  else
+    cp "$src/CLAUDE.md" "$ws/CLAUDE.md"
+  fi
+  local s
+  for s in "$src"/skills/*/; do
+    s="${s%/}"; rm -rf "$ws/.claude/skills/$(basename "$s")"; cp -r "$s" "$ws/.claude/skills/"
+  done
+  [ -f "$ws/.claude/settings.json" ] || cp "$src/settings.json" "$ws/.claude/settings.json"
+  [ -e "$ws/templates" ] || ln -s "$VLAB_HOME/templates" "$ws/templates"
+  ok "Claude instructions + skills installed in $ws"
+}
+
+cmd_setup() {
+  echo "vlab setup - this writes $VLAB_CONFIG and prepares your workspace."
+  echo "Press Enter to accept the [default]."
+  echo
+  local ws nd
+  nd="$(ask "Path of the shared college network drive (leave empty if none)" "$VLAB_NETDRIVE")"
+  VLAB_NETDRIVE="$nd"
+  echo "Your workspace is where Claude works and where runs are logged."
+  echo "  Tip: a folder in your own space on the network drive lets you reach files"
+  echo "  from any lab PC; a local disk folder is faster for heavy simulations."
+  ws="$(ask "Workspace directory" "$VLAB_WORKSPACE")"
+  ws="${ws/#\~/$HOME}"
+  mkdir -p "$ws" || die "cannot create $ws"
+
+  info "Looking for EDA tool installations (may take up to a minute)..."
+  local dirs scripts
+  dirs="$(detect_tool_dirs)"
+  scripts="$(detect_env_scripts)"
+  [ -n "$dirs" ] && { echo "Found tool bin directories:"; printf '    %s\n' $dirs; }
+  [ -n "$scripts" ] && { echo "Possible environment setup scripts (check with your lab admin which ones to use):"; printf '    %s\n' $scripts; }
+  local proxy; proxy="$(ask "HTTPS proxy for internet access (e.g. http://proxy.iiitdm.ac.in:3128, empty if none)" "${VLAB_HTTPS_PROXY:-${HTTPS_PROXY:-}}")"
+
+  mkdir -p "$VLAB_CONFIG_DIR"; chmod 700 "$VLAB_CONFIG_DIR"
+  if [ -f "$VLAB_CONFIG" ]; then cp "$VLAB_CONFIG" "$VLAB_CONFIG.bak.$(date +%s)"; fi
+  {
+    echo "# vlab configuration - generated $(date). This file is bash; edit freely."
+    echo "# Re-run 'vlab doctor' after editing."
+    echo
+    echo "VLAB_WORKSPACE=$(printf '%q' "$ws")"
+    echo "VLAB_NETDRIVE=$(printf '%q' "$nd")"
+    echo "VLAB_HTTPS_PROXY=$(printf '%q' "$proxy")"
+    echo
+    echo "# Setup scripts to load the EDA tools (csh/tcsh scripts are imported automatically)."
+    echo "# Copy the lines your lab uses (from your ~/.cshrc / ~/.bashrc, or ask the admin)."
+    echo "VLAB_ENV_SCRIPTS=("
+    local f; for f in $scripts; do echo "  # $(printf '%q' "$f")"; done
+    echo ")"
+    echo
+    echo "# Extra directories to put on PATH."
+    echo "VLAB_EXTRA_PATH=("
+    local d; for d in $dirs; do echo "  $(printf '%q' "$d")"; done
+    echo ")"
+    echo
+    echo "# Extra variables, e.g. license servers (port@host). Ask your lab admin for these."
+    echo "VLAB_EXPORTS=("
+    echo "  # \"SNPSLMD_LICENSE_FILE=27020@licserver\""
+    echo "  # \"CDS_LIC_FILE=5280@licserver\""
+    echo ")"
+    echo
+    echo "# Command used by 'vlab swb <project>' to run a Sentaurus Workbench project in batch."
+    echo "VLAB_SWB_CMD=$(printf '%q' "$VLAB_SWB_CMD")"
+  } >"$VLAB_CONFIG"
+  chmod 600 "$VLAB_CONFIG"
+  ok "wrote $VLAB_CONFIG"
+  VLAB_WORKSPACE="$ws"; VLAB_RUNS_DIR="$ws/.vlab/runs"; VLAB_HTTPS_PROXY="$proxy"
+
+  install_workspace_files "$ws"
+  [ -n "$proxy" ] && export HTTPS_PROXY="$proxy" https_proxy="$proxy"
+  install_claude
+  [ -d "$HOME/.claude" ] && chmod 700 "$HOME/.claude"
+
+  echo
+  info "Next steps"
+  echo "  1. Edit $VLAB_CONFIG: un-comment the right setup scripts and license servers."
+  echo "  2. vlab doctor                 # everything should be [ ok ]"
+  echo "  3. cd $ws && claude             # log in once (/login) and accept 'trust this folder'"
+  echo "  4. vlab remote start           # then open the Claude app -> Code"
+  echo "  5. vlab remote autostart       # optional: restart it automatically after reboots"
+}
+
+cmd_start() {
+  local dir="${1:-$VLAB_WORKSPACE}"
+  load_tool_env
+  cd "$dir" || die "no such directory: $dir"
+  exec claude
+}
+
+cmd_lic() {
+  load_tool_env
+  local lmutil; lmutil="$(command -v lmutil || command -v lmstat)" || die "lmutil/lmstat not found (it ships with the EDA tools; add its bin dir to VLAB_EXTRA_PATH)"
+  local srv="${1:-}"
+  local spec f
+  for spec in ${srv:-${SNPSLMD_LICENSE_FILE:-} ${CDS_LIC_FILE:-} ${LM_LICENSE_FILE:-}}; do
+    for f in ${spec//:/ }; do
+      echo "==== $f"
+      if [ "$(basename "$lmutil")" = lmutil ]; then "$lmutil" lmstat -a -c "$f" 2>&1 | grep -E 'Users of|license server|UP|DOWN' | head -n 60
+      else "$lmutil" -a -c "$f" 2>&1 | grep -E 'Users of|license server|UP|DOWN' | head -n 60; fi
+    done
+  done
+}
+
+cmd_snap() {
+  local out="${1:-$VLAB_WORKSPACE/.vlab/screenshot-$(date +%H%M%S).png}"
+  [ -n "${DISPLAY:-}" ] || export DISPLAY=:0
+  mkdir -p "$(dirname "$out")"
+  if have import; then import -window root "$out"
+  elif have xwd && have convert; then xwd -root -silent | convert xwd:- "$out"
+  elif have gnome-screenshot; then gnome-screenshot -f "$out"
+  else die "no screenshot tool (ImageMagick 'import', xwd+convert, or gnome-screenshot)"; fi
+  echo "$out"
+}
+
+usage() {
+  cat <<EOF
+vlab $VLAB_VERSION - VLSI lab assistant for Sentaurus / Cadence with Claude Code
+
+Setup & health
+  vlab setup                    interactive first-time setup (config, workspace, Claude Code)
+  vlab doctor                   check tools, licenses, network drive, Claude, remote session
+  vlab env                      print tool environment:  eval "\$(vlab env)"
+  vlab start [dir]              open Claude Code here with all EDA tools on PATH
+
+Remote access from the Claude app
+  vlab remote start [dir]       keep 'claude remote-control' running in tmux (survives logout)
+  vlab remote status|attach|log|stop|restart
+  vlab remote autostart         restart it after reboots / crashes (via your crontab)
+
+Running tools (all runs are logged, run detached, and survive disconnects)
+  vlab run [-n name] [-d dir] [-w] -- <command...>
+  vlab sde      [-w] file_dvs.cmd      Sentaurus Structure Editor (batch)
+  vlab sprocess [-w] file_fps.cmd      Sentaurus Process
+  vlab sdevice  [-w] file_des.cmd      Sentaurus Device
+  vlab svisual  [-w] script.tcl        Sentaurus Visual (batch)
+  vlab inspect  [-w] script.cmd        Inspect (batch)
+  vlab swb      [-w] <project-dir>     whole Workbench project via \$VLAB_SWB_CMD
+  vlab spectre  [-w] netlist.scs       Spectre, PSF-ASCII results in <name>.raw/
+  vlab ocean    [-w] script.ocn        OCEAN script (end it with 'exit')
+  vlab skill    [-w] script.il         Virtuoso -nograph replay (end it with '(exit)')
+  vlab genus    [-w] script.tcl        Genus synthesis batch
+  vlab innovus  [-w] script.tcl        Innovus batch
+  vlab xrun     [-w] <args...>         Xcelium simulation
+
+Jobs
+  vlab jobs [N]                 list recent jobs        vlab show [job]   summary + errors
+  vlab log [-f] [-n N] [job]    tail a job's log        vlab wait [job] [secs]
+  vlab kill [job]               stop a job              vlab clean [days] delete old records
+  (job = full id, any unique part of it, or empty for the latest)
+
+Results & misc
+  vlab plt2csv file.plt [out.csv]         Sentaurus .plt curves -> CSV
+  vlab psf2csv <psf-file|raw-dir> [out]   Spectre PSF-ASCII -> CSV
+  vlab lic [port@host]          license usage (lmstat)
+  vlab snap [out.png]           screenshot of the X display (lets Claude see a GUI)
+
+Config: $VLAB_CONFIG
+EOF
+}
+
+main() {
+  load_config
+  local cmd="${1:-help}"; shift || true
+  case "$cmd" in
+    setup) cmd_setup "$@" ;;
+    doctor) cmd_doctor "$@" ;;
+    env) cmd_env "$@" ;;
+    start) cmd_start "$@" ;;
+    remote) cmd_remote "$@" ;;
+    run) cmd_run "$@" ;;
+    jobs|ps) cmd_jobs "$@" ;;
+    log|logs) cmd_log "$@" ;;
+    wait) cmd_wait "$@" ;;
+    kill) cmd_kill "$@" ;;
+    show) cmd_show "$@" ;;
+    clean) cmd_clean "$@" ;;
+    sde|sdevice|sprocess|svisual|inspect|swb|spectre|ocean|skill|genus|innovus|xrun) tool_cmd "$cmd" "$@" ;;
+    plt2csv) exec python3 "$VLAB_HOME/libexec/plt2csv.py" "$@" ;;
+    psf2csv) exec python3 "$VLAB_HOME/libexec/psf2csv.py" "$@" ;;
+    lic) cmd_lic "$@" ;;
+    snap|screenshot) cmd_snap "$@" ;;
+    version|--version|-V) echo "vlab $VLAB_VERSION" ;;
+    help|-h|--help) usage ;;
+    *) die "unknown command '$cmd' (see: vlab help)" ;;
+  esac
+}
+
+main "$@"
