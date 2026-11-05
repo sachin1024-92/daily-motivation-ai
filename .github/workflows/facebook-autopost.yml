@@ -1,0 +1,60 @@
+name: Facebook Auto-Post
+
+on:
+  schedule:
+    # 09:13 and 19:13 IST (03:43 and 13:43 UTC)
+    - cron: "43 3,13 * * *"
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Generate the image only, don't post (1 = yes)"
+        default: "0"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: facebook-autopost
+  cancel-in-progress: false
+
+jobs:
+  post:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: automation/facebook_autopost
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - run: pip install -r requirements.txt
+
+      - name: Generate and post
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          XAI_API_KEY: ${{ secrets.XAI_API_KEY }}
+          IMAGE_PROVIDER: ${{ vars.IMAGE_PROVIDER || 'openai' }}
+          NICHE: ${{ vars.NICHE }}
+          FB_PAGE_ID: ${{ secrets.FB_PAGE_ID }}
+          FB_PAGE_ACCESS_TOKEN: ${{ secrets.FB_PAGE_ACCESS_TOKEN }}
+          DRY_RUN: ${{ github.event.inputs.dry_run || '0' }}
+        run: python post.py
+
+      - name: Upload generated image
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: autopost-${{ github.run_number }}
+          path: automation/facebook_autopost/output/
+          if-no-files-found: ignore
+
+      - name: Save post history
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add history.json
+          git diff --cached --quiet || (git commit -m "autopost: update history [skip ci]" && git push)
