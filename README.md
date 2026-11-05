@@ -63,7 +63,7 @@ After that, every push to `main` will produce downloadable APK and AAB artifacts
 
 ## Telegram channel (daily quote cards)
 
-`telegram_bot/post_daily.py` renders today's quote (from `lib/models/quote.dart`) as a 1080×1080 image and posts it to a Telegram channel. The `Telegram Daily Quote` workflow runs it every day at 03:00 UTC.
+`telegram_bot/post_daily.py` renders today's quote (from `lib/models/quote.dart`) as a 1080×1080 image on a blurred nature photo and posts it to a Telegram channel. The `Telegram Daily Quote` workflow runs it every day at 03:00 UTC.
 
 One-time setup:
 
@@ -73,6 +73,7 @@ One-time setup:
 4. In GitHub → Settings → Secrets and variables → Actions, add:
    - `TELEGRAM_BOT_TOKEN` — the BotFather token
    - `TELEGRAM_CHAT_ID` — the channel's `@username`
+   - `PEXELS_API_KEY` — optional, free from [pexels.com/api](https://www.pexels.com/api/); picks nature photos (mountains, forests, oceans…). Without it a random [Lorem Picsum](https://picsum.photos) photo is used, and if no photo can be downloaded a drawn landscape is used.
 5. Actions → **Telegram Daily Quote** → Run workflow. Tick *dry run* first to download a preview image, then run it again without it to post.
 
 Preview locally: `pip install -r telegram_bot/requirements.txt && python telegram_bot/post_daily.py --dry-run quote.png`
