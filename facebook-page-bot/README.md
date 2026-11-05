@@ -24,7 +24,8 @@ You can edit every page in `config/pages.yaml`: name, voice, posts per day, RSS 
 |---|---|---|
 | News | Public RSS feeds | Posted as a **link** with a summary in our own words. Facebook shows the publisher's own preview image, so we never re-upload their photos. |
 | Photos | [Pexels API](https://www.pexels.com/api/) | Free licence that allows commercial reuse. Photographers are credited. |
-| Videos | Pexels API | Same licence. |
+| Videos / Reels | Pexels API (vertical clips → published as **Reels**) | Same licence. Reels get the most reach on Facebook. |
+| Trending topics | Google Trends live searches (per country, `trends_geo`) | Only topic names are used; the AI writes about what people are searching for right now. |
 | Memes | [Imgflip API](https://imgflip.com/api) | Popular meme templates with **original** captions written by the AI. |
 | Text | Grok or Claude | Original writing in each page's voice. |
 

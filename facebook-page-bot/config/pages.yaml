@@ -9,6 +9,7 @@
 #   news         - real headline from an RSS feed, summarised + linked to source
 #   photo        - free-licence photo from Pexels + AI caption (credits photographer)
 #   video        - free-licence video clip from Pexels + AI caption
+#   reel         - vertical Pexels clip published as a Facebook Reel (best reach)
 #   meme         - meme generated from a popular template via the Imgflip API
 #                  with AI-written original captions
 
@@ -17,6 +18,8 @@ settings:
   active_hours: [7, 23]    # posts are spread between these local hours
   max_posts_per_run: 4     # safety cap per hourly run
   graph_api_version: "v23.0"
+# Per page you can also set trends_geo (default "US", e.g. "IN", "GB") - the AI uses
+# that country's live Google Trends searches to make posts about what people want now.
   ai_provider: "grok"      # "grok" (xAI) or "claude" (Anthropic)
   ai_model: ""             # leave blank for the provider default
 
@@ -25,7 +28,7 @@ pages:
     name: "Daily Laughs"
     posts_per_day: 5         # Facebook may throttle new pages that post a lot; raise slowly (max 20)
     voice: "A witty, family-friendly comedy page. Short punchy jokes, relatable everyday humour, puns."
-    content: {meme: 5, ai_text: 3, photo: 1}
+    content: {meme: 5, ai_text: 3, reel: 2}
     photo_queries: ["funny dog", "funny cat", "silly face", "office life"]
 
   - key: entertainment
@@ -52,7 +55,7 @@ pages:
     name: "Game Zone"
     posts_per_day: 5
     voice: "An enthusiastic gaming page. Gaming news, nostalgia, polls like 'which would you pick?', gamer humour."
-    content: {news: 4, meme: 2, ai_text: 2}
+    content: {news: 4, meme: 2, ai_text: 2, reel: 1}
     feeds:
       - "https://www.gamespot.com/feeds/news/"
       - "https://www.polygon.com/rss/index.xml"
@@ -62,7 +65,7 @@ pages:
     name: "Rise & Grind Daily"
     posts_per_day: 5
     voice: "An inspiring motivation page. Original short quotes, discipline and growth mindset, positive and warm."
-    content: {photo: 4, ai_text: 3, video: 1}
+    content: {reel: 4, photo: 3, ai_text: 2}
     photo_queries: ["sunrise mountain", "running athlete", "ocean horizon", "city skyline dawn"]
 
   - key: sports
@@ -88,19 +91,19 @@ pages:
     name: "Tasty Corner"
     posts_per_day: 5
     voice: "A mouth-watering food page. Quick recipe ideas, cooking tips, food polls ('pizza or burger?')."
-    content: {photo: 4, ai_text: 2, video: 1}
+    content: {reel: 4, photo: 3, ai_text: 1}
     photo_queries: ["street food", "dessert", "pizza", "indian food", "breakfast"]
 
   - key: travel
     name: "Wander Daily"
     posts_per_day: 5
     voice: "A dreamy travel page. Beautiful places, travel tips, 'where would you go?' questions."
-    content: {photo: 5, video: 1, ai_text: 1}
+    content: {reel: 4, photo: 4, ai_text: 1}
     photo_queries: ["beach", "mountains", "old town street", "waterfall", "desert"]
 
   - key: facts
     name: "Did You Know?"
     posts_per_day: 5
     voice: "A fun-facts page. Surprising, TRUE and well-known facts about science, history, animals and space. Never invent facts."
-    content: {ai_text: 4, photo: 2}
+    content: {ai_text: 4, photo: 2, reel: 1}
     photo_queries: ["space galaxy", "ancient ruins", "wild animal", "microscope"]

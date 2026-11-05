@@ -27,7 +27,7 @@ UA = {"User-Agent": "facebook-page-bot/1.0"}
 
 @dataclass
 class Post:
-    kind: str                 # "text" | "link" | "photo" | "video"
+    kind: str                 # "text" | "link" | "photo" | "video" | "reel"
     message: str
     dedupe_key: str
     link: str | None = None
@@ -40,6 +40,30 @@ class SourceUnavailable(RuntimeError):
 
 def _hash(text: str) -> str:
     return hashlib.sha1(text.encode()).hexdigest()[:16]
+
+
+_TRENDS: dict[str, list[str]] = {}
+
+
+def trending_topics(geo: str = "US", limit: int = 15) -> list[str]:
+    """Today's top Google searches (cached per run) so posts ride current interest."""
+    if geo not in _TRENDS:
+        try:
+            feed = feedparser.parse(f"https://trends.google.com/trending/rss?geo={geo}", agent=UA["User-Agent"])
+            _TRENDS[geo] = [_strip_html(e.get("title", "")) for e in feed.entries[:limit] if e.get("title")]
+        except Exception:  # trends are a bonus; never block posting
+            _TRENDS[geo] = []
+    return _TRENDS[geo]
+
+
+def _trend_hint(page: dict) -> str:
+    topics = trending_topics(page.get("trends_geo", "US"))
+    if not topics:
+        return ""
+    return (
+        "\nTrending searches right now: " + ", ".join(topics) + ". If one of them fits this page's "
+        "topic naturally, build the post around it (don't invent facts about it); otherwise ignore the list."
+    )
 
 
 def _system(page: dict) -> str:
@@ -63,7 +87,7 @@ def ai_text(page: dict, ai: AIWriter, seen: set[str]) -> Post:
         "a short post", "a question that invites comments", "a quick list of 3",
         "a one-liner", "a 'this or that' poll-style question",
     ])
-    msg = ai.write(_system(page), f"Write {angle} for the page. Under 60 words.")
+    msg = ai.write(_system(page), f"Write {angle} for the page. Under 60 words.{_trend_hint(page)}")
     key = "ai:" + _hash(msg)
     if key in seen:
         raise SourceUnavailable("duplicate AI text")
@@ -148,6 +172,38 @@ def video(page: dict, ai: AIWriter, seen: set[str]) -> Post:
     raise SourceUnavailable(f"no new videos for '{query}'")
 
 
+def reel(page: dict, ai: AIWriter, seen: set[str]) -> Post:
+    """Vertical (9:16) short clip published as a Facebook Reel - the highest-reach format."""
+    query = random.choice(page.get("photo_queries") or [page["key"]])
+    r = requests.get(
+        "https://api.pexels.com/videos/search",
+        headers={"Authorization": _pexels_key()},
+        params={"query": query, "per_page": 40, "orientation": "portrait",
+                "page": random.randint(1, 3)},
+        timeout=30,
+    )
+    r.raise_for_status()
+    vids = [v for v in r.json().get("videos", [])
+            if f"pexelsv:{v['id']}" not in seen and 3 <= (v.get("duration") or 0) <= 60]
+    random.shuffle(vids)
+    for v in vids:
+        files = [f for f in v.get("video_files", [])
+                 if f.get("file_type") == "video/mp4"
+                 and (f.get("height") or 0) > (f.get("width") or 0)
+                 and 540 <= (f.get("height") or 0) <= 1920]
+        if not files:
+            continue
+        best = max(files, key=lambda f: f["height"])
+        caption = ai.write(
+            _system(page),
+            f"Write a Reel caption for a short vertical clip about '{query}'. Start with a scroll-stopping "
+            f"hook line, then one line inviting comments. Under 35 words.{_trend_hint(page)}",
+        )
+        credit = f"🎥 {v['user']['name']} / Pexels"
+        return Post("reel", f"{caption}\n\n{credit}", f"pexelsv:{v['id']}", media_url=best["link"])
+    raise SourceUnavailable(f"no new vertical videos for '{query}'")
+
+
 def meme(page: dict, ai: AIWriter, seen: set[str]) -> Post:
     user, pw = os.environ.get("IMGFLIP_USERNAME"), os.environ.get("IMGFLIP_PASSWORD")
     if not user or not pw:
@@ -159,7 +215,7 @@ def meme(page: dict, ai: AIWriter, seen: set[str]) -> Post:
         _system(page),
         f"Create an ORIGINAL meme for the '{t['name']}' template about a topic that fits the page. "
         'Reply with JSON only: {"top": "...", "bottom": "...", "caption": "short post caption"}. '
-        "Each text line under 60 characters.",
+        f"Each text line under 60 characters.{_trend_hint(page)}",
         max_tokens=200,
     )
     m = re.search(r"\{.*\}", raw, re.S)
@@ -185,6 +241,7 @@ GENERATORS: dict[str, Callable[[dict, AIWriter, set[str]], Post]] = {
     "news": news,
     "photo": photo,
     "video": video,
+    "reel": reel,
     "meme": meme,
 }
 
