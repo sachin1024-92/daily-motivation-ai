@@ -61,6 +61,22 @@ After that, every push to `main` will produce downloadable APK and AAB artifacts
 2. Add it to the Grok service file
 3. (Optional) Connect Firebase for cloud sync and user accounts
 
+## Telegram channel (daily quote cards)
+
+`telegram_bot/post_daily.py` renders today's quote (from `lib/models/quote.dart`) as a 1080×1080 image and posts it to a Telegram channel. The `Telegram Daily Quote` workflow runs it every day at 03:00 UTC.
+
+One-time setup:
+
+1. In Telegram, create a **public channel** (e.g. `@dailymotivationai`).
+2. Message [@BotFather](https://t.me/BotFather), send `/newbot`, and copy the token.
+3. Add the bot to the channel as an **admin** with permission to post messages.
+4. In GitHub → Settings → Secrets and variables → Actions, add:
+   - `TELEGRAM_BOT_TOKEN` — the BotFather token
+   - `TELEGRAM_CHAT_ID` — the channel's `@username`
+5. Actions → **Telegram Daily Quote** → Run workflow. Tick *dry run* first to download a preview image, then run it again without it to post.
+
+Preview locally: `pip install -r telegram_bot/requirements.txt && python telegram_bot/post_daily.py --dry-run quote.png`
+
 ## Roadmap
 
 - [x] Core screens & local state

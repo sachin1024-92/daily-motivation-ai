@@ -1,0 +1,47 @@
+name: Telegram Daily Quote
+
+on:
+  schedule:
+    # 03:00 UTC = 08:30 IST
+    - cron: '0 3 * * *'
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Only render the image (upload as artifact), do not post'
+        type: boolean
+        default: false
+
+jobs:
+  post:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: pip install -r telegram_bot/requirements.txt
+
+      - name: Render preview
+        if: inputs.dry_run
+        env:
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: python telegram_bot/post_daily.py --dry-run quote.png
+
+      - name: Upload preview
+        if: inputs.dry_run
+        uses: actions/upload-artifact@v4
+        with:
+          name: quote-card
+          path: quote.png
+
+      - name: Post to Telegram
+        if: ${{ !inputs.dry_run }}
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: python telegram_bot/post_daily.py
