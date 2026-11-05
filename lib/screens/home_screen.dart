@@ -1,8 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:daily_motivation_ai/models/quote.dart';
 import 'package:daily_motivation_ai/providers/theme_provider.dart';
 import 'dart:math';
+
+// Public Telegram channel where the daily quote card is posted.
+const telegramChannelUrl = 'https://t.me/dailymotivationai';
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -108,6 +112,24 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   ),
                 ),
               ],
+            ),
+            const SizedBox(height: 24),
+
+            Card(
+              child: ListTile(
+                leading: const Icon(Icons.send_rounded, color: Colors.lightBlue),
+                title: const Text('Join us on Telegram'),
+                subtitle: const Text('Get a daily quote card in your Telegram feed'),
+                trailing: const Icon(Icons.copy),
+                onTap: () {
+                  final messenger = ScaffoldMessenger.of(context);
+                  Clipboard.setData(const ClipboardData(text: telegramChannelUrl)).then((_) {
+                    messenger.showSnackBar(
+                      const SnackBar(content: Text('Channel link copied: $telegramChannelUrl')),
+                    );
+                  });
+                },
+              ),
             ),
           ],
         ),
