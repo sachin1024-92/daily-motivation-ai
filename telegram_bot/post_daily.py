@@ -7,6 +7,9 @@ Environment:
   TELEGRAM_BOT_TOKEN  bot token from @BotFather (not needed with --dry-run)
   TELEGRAM_CHAT_ID    target channel, e.g. @dailymotivationai or -100123...
   CHANNEL_HANDLE      optional footer text, defaults to TELEGRAM_CHAT_ID
+  PEXELS_API_KEY      optional; picks nature photos from Pexels. Without it a
+                      Lorem Picsum photo is used, and if no photo can be
+                      downloaded a drawn landscape is used instead.
 
 Usage:
   python telegram_bot/post_daily.py --dry-run out.png
@@ -16,6 +19,8 @@ Usage:
 import argparse
 import datetime as dt
 import io
+import math
+import random
 import os
 import re
 import sys
@@ -23,7 +28,7 @@ import textwrap
 from pathlib import Path
 
 import requests
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageDraw, ImageFilter, ImageFont, ImageOps
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 QUOTES_FILE = REPO_ROOT / "lib" / "models" / "quote.dart"
@@ -32,13 +37,19 @@ FONT_DIRS = [
     Path("/usr/share/fonts/truetype/dejavu"),
     Path("/usr/share/fonts/dejavu"),
 ]
-# Background gradients (top colour, bottom colour), one picked per day.
+# Pexels searches, one picked per day.
+NATURE_QUERIES = [
+    "mountain landscape", "forest sunlight", "ocean sunrise", "misty lake",
+    "waterfall", "snowy mountains", "green valley", "desert dunes",
+    "autumn forest", "starry night sky", "beach sunset", "meadow flowers",
+]
+# Sky colours (top, horizon) for the drawn landscape fallback.
 PALETTES = [
-    ((67, 56, 202), (219, 39, 119)),
-    ((15, 118, 110), (59, 130, 246)),
-    ((234, 88, 12), (190, 24, 93)),
-    ((30, 41, 59), (79, 70, 229)),
-    ((22, 101, 52), (202, 138, 4)),
+    ((37, 99, 235), (253, 186, 116)),   # morning blue to peach
+    ((76, 29, 149), (251, 146, 60)),    # violet dusk
+    ((14, 116, 144), (167, 243, 208)),  # teal to mint
+    ((30, 58, 138), (244, 114, 182)),   # navy to pink sunset
+    ((21, 94, 117), (254, 240, 138)),   # sea to golden hour
 ]
 
 QUOTE_RE = re.compile(
@@ -64,14 +75,93 @@ def load_font(name, size):
     return ImageFont.load_default(size)
 
 
-def gradient(top, bottom):
-    img = Image.new("RGB", (SIZE, SIZE))
+def gradient(top, bottom, size=SIZE):
+    img = Image.new("RGB", (size, size))
     draw = ImageDraw.Draw(img)
-    for y in range(SIZE):
-        t = y / (SIZE - 1)
+    for y in range(size):
+        t = y / (size - 1)
         colour = tuple(round(a + (b - a) * t) for a, b in zip(top, bottom))
-        draw.line([(0, y), (SIZE, y)], fill=colour)
+        draw.line([(0, y), (size, y)], fill=colour)
     return img
+
+
+def drawn_landscape(palette, seed):
+    """Sky, sun and layered mountain ridges, used when no photo is available."""
+    rng = random.Random(seed)
+    sky_top, horizon = palette
+    img = gradient(sky_top, horizon)
+    draw = ImageDraw.Draw(img)
+
+    sun_x, sun_y, sun_r = rng.randint(220, 860), rng.randint(150, 240), rng.randint(60, 95)
+    draw.ellipse([sun_x - sun_r, sun_y - sun_r, sun_x + sun_r, sun_y + sun_r], fill=(255, 236, 200))
+
+    ridges = 4
+    for i in range(ridges):
+        depth = (i + 1) / ridges
+        base = 560 + i * 120
+        shade = tuple(round(h * (1 - depth) * 0.55 + t * (0.9 - 0.5 * depth) * depth) for t, h in zip(sky_top, horizon))
+        phases = [rng.uniform(0, math.tau) for _ in range(3)]
+        points = [(0, SIZE)]
+        for x in range(0, SIZE + 1, 8):
+            y = base
+            for k, (freq, amp) in enumerate([(1.5, 70), (3.7, 30), (9.1, 10)]):
+                y -= amp * (1 - 0.3 * depth) * math.sin(x / SIZE * freq * math.tau / 2 + phases[k])
+            points.append((x, y))
+        points.append((SIZE, SIZE))
+        draw.polygon(points, fill=shade)
+    return img
+
+
+def fetch_image(url, headers=None):
+    resp = requests.get(url, headers=headers, timeout=30)
+    resp.raise_for_status()
+    return Image.open(io.BytesIO(resp.content)).convert("RGB")
+
+
+def pexels_photo(api_key, day):
+    query = NATURE_QUERIES[day % len(NATURE_QUERIES)]
+    resp = requests.get(
+        "https://api.pexels.com/v1/search",
+        params={"query": query, "orientation": "square", "per_page": 40},
+        headers={"Authorization": api_key},
+        timeout=30,
+    )
+    resp.raise_for_status()
+    photos = resp.json().get("photos", [])
+    if not photos:
+        raise ValueError(f"no Pexels results for {query!r}")
+    photo = photos[(day // len(NATURE_QUERIES)) % len(photos)]
+    img = fetch_image(photo["src"]["large2x"])
+    return img, f"Photo: {photo['photographer']} / Pexels"
+
+
+def picsum_photo(today):
+    img = fetch_image(f"https://picsum.photos/seed/dmai-{today.isoformat()}/{SIZE}/{SIZE}")
+    return img, None
+
+
+def photo_background(today, day):
+    """A nature photo for the day, or None if none could be downloaded."""
+    sources = []
+    if os.environ.get("PEXELS_API_KEY"):
+        sources.append(("Pexels", lambda: pexels_photo(os.environ["PEXELS_API_KEY"], day)))
+    sources.append(("Lorem Picsum", lambda: picsum_photo(today)))
+    for name, fetch in sources:
+        try:
+            return fetch()
+        except (requests.RequestException, OSError, ValueError, KeyError) as exc:
+            print(f"{name} photo unavailable ({type(exc).__name__}), trying next source")
+    return None
+
+
+def soften(img, blur):
+    """Square-crop, blur and darken a background so white text reads on it."""
+    img = ImageOps.fit(img, (SIZE, SIZE), Image.LANCZOS)
+    if blur:
+        img = img.filter(ImageFilter.GaussianBlur(blur))
+    shade = gradient((0, 0, 0), (0, 0, 0)).convert("L")
+    mask = Image.linear_gradient("L").resize((SIZE, SIZE)).point(lambda v: 55 + v * 85 // 255)
+    return Image.composite(shade.convert("RGB"), img, mask)
 
 
 def fit_quote(draw, text, max_width, max_height):
@@ -86,9 +176,10 @@ def fit_quote(draw, text, max_width, max_height):
     return font, lines
 
 
-def render_card(text, author, palette, footer):
-    img = gradient(*palette)
-    draw = ImageDraw.Draw(img)
+def render_card(text, author, background, footer):
+    img = background.copy()
+    text_layer = Image.new("RGBA", img.size, (0, 0, 0, 0))
+    draw = ImageDraw.Draw(text_layer)
     margin = 110
 
     font, lines = fit_quote(draw, text, SIZE - 2 * margin, SIZE * 0.55)
@@ -111,16 +202,31 @@ def render_card(text, author, palette, footer):
     if footer:
         footer_font = load_font("DejaVuSans-Bold.ttf", 30)
         draw.text((SIZE // 2, SIZE - 70), footer, font=footer_font, fill="white", anchor="ms")
-    return img
+
+    # Soft drop shadow: a blurred black copy of the text under the text.
+    alpha = text_layer.getchannel("A")
+    shadow = Image.new("RGBA", img.size, (0, 0, 0, 0))
+    shadow.putalpha(alpha.filter(ImageFilter.GaussianBlur(6)).point(lambda v: v * 3 // 4))
+    img = img.convert("RGBA")
+    img.alpha_composite(shadow, (3, 4))
+    img.alpha_composite(text_layer)
+    return img.convert("RGB")
 
 
-def todays_post(today=None):
+def todays_post(today=None, use_photos=True):
     today = today or dt.date.today()
     quotes = load_quotes()
     day = today.timetuple().tm_yday
     text, author = quotes[day % len(quotes)]
-    palette = PALETTES[day % len(PALETTES)]
-    return text, author, palette
+
+    photo = photo_background(today, day) if use_photos else None
+    if photo:
+        image, credit = photo
+        background = soften(image, blur=10)
+    else:
+        credit = None
+        background = soften(drawn_landscape(PALETTES[day % len(PALETTES)], seed=today.toordinal()), blur=3)
+    return text, author, background, credit
 
 
 def send_photo(token, chat_id, png_bytes, caption):
@@ -144,13 +250,14 @@ def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--dry-run", metavar="PNG", help="write the image here instead of posting")
     parser.add_argument("--date", help="YYYY-MM-DD, defaults to today")
+    parser.add_argument("--no-photo", action="store_true", help="skip photo download, use the drawn landscape")
     args = parser.parse_args(argv)
 
     chat_id = os.environ.get("TELEGRAM_CHAT_ID", "")
     footer = os.environ.get("CHANNEL_HANDLE") or (chat_id if chat_id.startswith("@") else "Daily Motivation AI")
     today = dt.date.fromisoformat(args.date) if args.date else None
-    text, author, palette = todays_post(today)
-    img = render_card(text, author, palette, footer)
+    text, author, background, credit = todays_post(today, use_photos=not args.no_photo)
+    img = render_card(text, author, background, footer)
 
     if args.dry_run:
         img.save(args.dry_run)
@@ -163,6 +270,8 @@ def main(argv=None):
     buf = io.BytesIO()
     img.save(buf, format="PNG")
     caption = f"☀️ Today's motivation\n\n“{text}” — {author}"
+    if credit:
+        caption += f"\n\n📷 {credit}"
     message_id = send_photo(token, chat_id, buf.getvalue(), caption)
     print(f"Posted message {message_id} to {chat_id}")
 
