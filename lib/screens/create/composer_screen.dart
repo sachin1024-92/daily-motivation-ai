@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:daily_motivation_ai/app/navigation.dart';
 import 'package:daily_motivation_ai/data/seed.dart';
 import 'package:daily_motivation_ai/models/chat.dart';
 import 'package:daily_motivation_ai/models/media_art.dart';
@@ -9,6 +10,7 @@ import 'package:daily_motivation_ai/models/story.dart';
 import 'package:daily_motivation_ai/providers/app_providers.dart';
 import 'package:daily_motivation_ai/providers/chats_provider.dart';
 import 'package:daily_motivation_ai/providers/content_providers.dart';
+import 'package:daily_motivation_ai/providers/plus_provider.dart';
 import 'package:daily_motivation_ai/providers/profile_provider.dart';
 import 'package:daily_motivation_ai/services/external_share.dart';
 import 'package:daily_motivation_ai/utils/format.dart';
@@ -76,7 +78,7 @@ class _ComposerScreenState extends ConsumerState<ComposerScreen> {
   bool get _needsArt => _targets.contains(PublishTarget.story) || _targets.contains(PublishTarget.reel);
 
   MediaArt? get _art =>
-      _palette == null ? null : MediaArt(colors: artPalettes[_palette!], emoji: _emoji, seed: _palette! * 13 + artEmojis.indexOf(_emoji));
+      _palette == null ? null : MediaArt(colors: allVibes[_palette!], emoji: _emoji, seed: _palette! * 13 + artEmojis.indexOf(_emoji));
 
   List<String> get _pollOptions => _options.map((c) => c.text.trim()).where((t) => t.isNotEmpty).toList();
 
@@ -148,6 +150,7 @@ class _ComposerScreenState extends ConsumerState<ComposerScreen> {
   @override
   Widget build(BuildContext context) {
     final me = ref.watch(profileProvider);
+    final plus = ref.watch(isPlusProvider);
     final subscribers = ref.watch(chatProvider(myChannelId))?.subscribers ?? 0;
     final scheme = Theme.of(context).colorScheme;
     final muted = scheme.onSurfaceVariant;
@@ -264,12 +267,15 @@ class _ComposerScreenState extends ConsumerState<ComposerScreen> {
                   onTap: _needsArt ? null : () => setState(() => _palette = null),
                   child: Icon(Icons.text_fields_rounded, color: _needsArt ? muted.withValues(alpha: 0.4) : muted),
                 ),
-                for (var i = 0; i < artPalettes.length; i++)
+                for (var i = 0; i < allVibes.length; i++)
                   _Swatch(
                     key: ValueKey('palette-$i'),
                     selected: _palette == i,
-                    colors: artPalettes[i],
-                    onTap: () => setState(() => _palette = i),
+                    colors: allVibes[i],
+                    locked: i >= artPalettes.length && !plus,
+                    onTap: i >= artPalettes.length && !plus
+                        ? () => openPlus(context, reason: 'Premium vibes are part of Orbit Plus.')
+                        : () => setState(() => _palette = i),
                   ),
               ],
             ),
@@ -363,12 +369,13 @@ class _ComposerScreenState extends ConsumerState<ComposerScreen> {
 }
 
 class _Swatch extends StatelessWidget {
-  const _Swatch({super.key, required this.selected, required this.onTap, this.colors, this.child});
+  const _Swatch({super.key, required this.selected, required this.onTap, this.colors, this.child, this.locked = false});
 
   final bool selected;
   final VoidCallback? onTap;
   final List<Color>? colors;
   final Widget? child;
+  final bool locked;
 
   @override
   Widget build(BuildContext context) {
@@ -393,7 +400,7 @@ class _Swatch extends StatelessWidget {
               color: colors == null ? scheme.surfaceContainerHighest : null,
               gradient: colors == null ? null : LinearGradient(colors: colors!),
             ),
-            child: child,
+            child: locked ? const Icon(Icons.lock_rounded, color: Colors.white, size: 18) : child,
           ),
         ),
       ),

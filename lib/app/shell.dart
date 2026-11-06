@@ -8,10 +8,24 @@ import 'package:daily_motivation_ai/screens/chats/chats_screen.dart';
 import 'package:daily_motivation_ai/screens/feed/feed_screen.dart';
 import 'package:daily_motivation_ai/screens/reels/reels_screen.dart';
 import 'package:daily_motivation_ai/screens/watch/watch_screen.dart';
+import 'package:daily_motivation_ai/widgets/welcome.dart';
 
 /// Home · Reels · Create · Watch · Chats — every way to connect, one app.
-class OrbitShell extends ConsumerWidget {
+class OrbitShell extends ConsumerStatefulWidget {
   const OrbitShell({super.key});
+
+  @override
+  ConsumerState<OrbitShell> createState() => _OrbitShellState();
+}
+
+class _OrbitShellState extends ConsumerState<OrbitShell> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) showWelcomeIfNeeded(context);
+    });
+  }
 
   static const _pages = <OrbitTab, Widget>{
     OrbitTab.home: FeedScreen(),
@@ -24,7 +38,7 @@ class OrbitShell extends ConsumerWidget {
   static const _slots = [OrbitTab.home, OrbitTab.reels, null, OrbitTab.watch, OrbitTab.chats];
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final tab = ref.watch(shellTabProvider);
     final unread = ref.watch(unreadChatsProvider);
 

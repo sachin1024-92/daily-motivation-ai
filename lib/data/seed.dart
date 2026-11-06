@@ -3,6 +3,7 @@ import 'package:daily_motivation_ai/models/chat.dart';
 import 'package:daily_motivation_ai/models/media_art.dart';
 import 'package:daily_motivation_ai/models/post.dart';
 import 'package:daily_motivation_ai/models/reel.dart';
+import 'package:daily_motivation_ai/models/service.dart';
 import 'package:daily_motivation_ai/models/story.dart';
 import 'package:daily_motivation_ai/models/user.dart';
 import 'package:daily_motivation_ai/models/video.dart';
@@ -567,6 +568,90 @@ List<Chat> seedChats() => [
         messages: [
           Message(id: 'm20', senderId: 'mei', text: 'Rail pass prices drop next week — set a reminder!', sentAt: _ago(h: 20), views: 51000),
         ],
+      ),
+    ];
+
+/// Sample services offered by the demo creators.
+List<OrbitService> seedServices() => [
+      OrbitService(
+        id: 'sv1',
+        providerId: 'rohan',
+        title: '1:1 mobility coaching',
+        category: 'Coaching',
+        description: 'A 45-minute video session: assessment, a routine built for your body, and a two-week follow-up plan.',
+        price: 499,
+        unit: 'per session',
+        mode: ServiceMode.online,
+        rating: 4.9,
+        reviews: 212,
+        art: _art(9, '🧘', 61),
+        featured: true,
+      ),
+      OrbitService(
+        id: 'sv2',
+        providerId: 'aisha',
+        title: 'Golden-hour portrait shoot',
+        category: 'Creative',
+        description: 'One hour outdoors, 25 edited photos delivered in 3 days. Great for profiles, couples and small brands.',
+        price: 2999,
+        unit: 'per shoot',
+        mode: ServiceMode.inPerson,
+        rating: 4.8,
+        reviews: 96,
+        art: _art(1, '📸', 62),
+        featured: true,
+      ),
+      OrbitService(
+        id: 'sv3',
+        providerId: 'leo',
+        title: 'Flutter app code review',
+        category: 'Tech',
+        description: 'I review your repo, flag bugs and performance issues, and walk you through fixes on a 30-minute call.',
+        price: 1499,
+        unit: 'per review',
+        mode: ServiceMode.online,
+        rating: 5.0,
+        reviews: 41,
+        art: _art(2, '💻', 63),
+      ),
+      OrbitService(
+        id: 'sv4',
+        providerId: 'nia',
+        title: 'Weekly meal plan + grocery list',
+        category: 'Food',
+        description: 'Seven 15-minute dinners tailored to your diet and budget, with one combined shopping list.',
+        price: 299,
+        unit: 'per week',
+        mode: ServiceMode.online,
+        rating: 4.7,
+        reviews: 388,
+        art: _art(6, '🥗', 64),
+      ),
+      OrbitService(
+        id: 'sv5',
+        providerId: 'zara',
+        title: 'Beginner vocal lesson',
+        category: 'Learning',
+        description: 'Breathing, pitch and warm-ups in a friendly 40-minute lesson. All ages welcome.',
+        price: 799,
+        unit: 'per lesson',
+        mode: ServiceMode.both,
+        rating: 4.9,
+        reviews: 154,
+        art: _art(4, '🎤', 65),
+      ),
+      OrbitService(
+        id: 'sv6',
+        providerId: 'mei',
+        title: 'Custom slow-travel itinerary',
+        category: 'Travel',
+        description: 'A day-by-day plan with routes, stays and budget for up to 14 days, plus a call to tweak it.',
+        price: 1999,
+        unit: 'per trip',
+        mode: ServiceMode.online,
+        rating: 4.8,
+        reviews: 73,
+        art: _art(3, '🗺️', 66),
       ),
     ];
 

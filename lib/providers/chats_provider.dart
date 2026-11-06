@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:daily_motivation_ai/data/seed.dart';
 import 'package:daily_motivation_ai/models/chat.dart';
 import 'package:daily_motivation_ai/models/media_art.dart';
+import 'package:daily_motivation_ai/models/service.dart';
 import 'package:daily_motivation_ai/providers/app_providers.dart';
 import 'package:daily_motivation_ai/providers/content_providers.dart';
 import 'package:daily_motivation_ai/services/grok_service.dart';
@@ -102,6 +103,29 @@ class ChatsNotifier extends StateNotifier<List<Chat>> {
     }
   }
 
+  /// Sends a booking request for [service] to its provider and returns the
+  /// chat id, so the caller can open the conversation.
+  String requestService(OrbitService service, {required String providerName, String when = '', String note = ''}) {
+    final chatId = ensureDirectChat(service.providerId, title: providerName);
+    final lines = [
+      'Hi! I\'d like to book "${service.title}".',
+      if (when.isNotEmpty) 'Preferred time: $when',
+      if (note.trim().isNotEmpty) note.trim(),
+    ];
+    send(
+      chatId,
+      lines.join('\n'),
+      attachment: SharedRef(
+        kind: SharedKind.service,
+        id: service.id,
+        ownerId: service.providerId,
+        title: '${service.title} · ${service.priceLabel} ${service.unit}',
+        art: service.art,
+      ),
+    );
+    return chatId;
+  }
+
   /// Posts to my own broadcast channel.
   void broadcast(String text, {SharedRef? attachment}) => send(myChannelId, text, attachment: attachment);
 
@@ -173,6 +197,9 @@ class ChatsNotifier extends StateNotifier<List<Chat>> {
 
   String _replyFor(Message message) {
     final text = message.text.toLowerCase();
+    if (message.attachment?.kind == SharedKind.service) {
+      return 'Thanks for reaching out! 🙌 I have openings tomorrow at 10:00 or 18:00. Which works for you?';
+    }
     if (message.attachment != null) {
       return const ['Obsessed with this 🔥', 'Haha this is so good 😂', 'Saving this 🔖'][text.length % 3];
     }

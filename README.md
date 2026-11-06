@@ -26,7 +26,9 @@ Most people bounce between five apps to post, watch, message and broadcast. Orbi
 - **🤖 Orbit AI in your chat list** — the Grok-powered coach is a pinned chat. Tap *Ask AI* on any video to get a summary in chat, and get smart reply chips in every conversation.
 - **🌐 Your worlds** — link your Facebook, Instagram, WhatsApp, Telegram and YouTube handles on your profile. Friends tap to open you in the right app.
 - **🌿 Mindful by design** — the feed ends with *"You're all caught up"*. Every day starts with a *Daily spark* quote, and the habits, focus timer and AI coach from Daily Motivation AI sit one tap away.
-- **🔎 One search** across people, chats, channels, posts, reels and videos.
+- **🛍️ Services marketplace** — people offer coaching, shoots, lessons, reviews and more; request one in two taps and agree the details in chat. List your own from the storefront icon.
+- **⭐ Orbit Plus** — an optional Google Play subscription: no ads, unlimited Orbit AI (free tier: 15 messages a day), premium vibes, a Plus badge and featured service listings.
+- **🔎 One search** across people, chats, channels, posts, reels, videos and services.
 - 🌗 Light & dark themes, offline-first, with no network needed for the demo.
 
 > Orbit never scrapes or proxies other networks. It interoperates only through public mechanisms: the OS share sheet and regular profile links.
@@ -37,6 +39,7 @@ Most people bounce between five apps to post, watch, message and broadcast. Orbi
 - Riverpod (`StateNotifier`) for state
 - SharedPreferences for local persistence (profile, linked worlds, habits, theme)
 - `share_plus` + `url_launcher` for hand-off to other apps
+- `in_app_purchase` (Google Play Billing) for Orbit Plus, `google_mobile_ads` (AdMob + consent) for ads
 - Grok / xAI API for the AI coach (simulated when no key is set)
 
 ```
@@ -46,7 +49,8 @@ lib/
   models/       Post, Story, Reel, Video, Chat/Message/SharedRef, OrbitUser, World
   providers/    feed, stories, reels, videos, chats, profile, habits, theme
   screens/      feed · stories · reels · watch · chats · create · profile · search · activity · wellbeing
-  services/     grok_service.dart, external_share.dart
+                services (marketplace) · plus (paywall) · settings (legal, delete my data)
+  services/     grok_service.dart, external_share.dart, billing_service.dart, ads_service.dart
   widgets/      art canvas, avatars, reaction/comment/share sheets
 ```
 
@@ -86,22 +90,18 @@ flutter run --dart-define=GROK_API_KEY=xai-your-key
 
 Without a key, Orbit AI answers with built-in offline responses.
 
-### Enable full CI builds (APK + AAB)
+### Android and Google Play
 
-The repository ships the `web/` target (CI builds it on every run). To make the GitHub Actions workflow also build a release APK and App Bundle, add the mobile platform folders **once** on your machine:
+The `android/` project is included (package `com.princendlesster.orbit`, target API 36). Build a release locally:
 
 ```bash
-cd daily-motivation-ai
-flutter create . --platforms=android,ios
-# Review the generated folders, then:
-git add android ios .metadata
-git commit -m "Add platform folders so CI can build APK/AAB"
-git push
+flutter build appbundle --release   # build/app/outputs/bundle/release/app-release.aab
+flutter build apk --release --split-per-abi
 ```
 
-`flutter_local_notifications` requires core library desugaring on Android. If the APK build asks for it, enable `isCoreLibraryDesugaringEnabled = true` in `android/app/build.gradle.kts` and add the `desugar_jdk_libs` dependency, as described in that package's README.
+Release builds are signed with the upload key named in `android/key.properties` (git-ignored; see the comment in `android/app/build.gradle.kts`). Without it they fall back to the debug key, which is what CI does on every push.
 
-After that, every push to `main` produces downloadable APK and AAB artifacts. `share_plus` needs Java 17 and a recent Android Gradle Plugin, which the current `flutter create` templates already use.
+**Publishing, monetization setup and the store listing are in [`docs/play-store/README.md`](docs/play-store/README.md)**, including the step-by-step Play Console checklist, Orbit Plus product IDs, AdMob setup, Data safety answers, privacy policy, terms and store graphics. The **Play release** GitHub Actions workflow uploads signed builds to any Play track once its secrets are set.
 
 ## Roadmap
 
@@ -115,7 +115,10 @@ After that, every push to `main` produces downloadable APK and AAB artifacts. `s
 - [ ] Real photo/video capture and upload
 - [ ] Live Grok streaming responses
 - [ ] Push notifications (`flutter_local_notifications` is already a dependency)
-- [ ] Play Store release (free + premium tiers)
+- [x] Android project, Orbit Plus subscription, AdMob ads, services marketplace
+- [x] Play Store kit: signed builds, listing, policies, graphics, release workflow
+- [ ] Play Store launch under princendlesster@gmail.com (see docs/play-store)
+- [ ] Server-side purchase verification and service payments (Razorpay/Stripe)
 
 ## Why this project matters
 

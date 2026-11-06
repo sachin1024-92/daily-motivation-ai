@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:daily_motivation_ai/data/seed.dart';
 import 'package:daily_motivation_ai/models/post.dart';
 import 'package:daily_motivation_ai/models/reel.dart';
+import 'package:daily_motivation_ai/models/service.dart';
 import 'package:daily_motivation_ai/models/story.dart';
 import 'package:daily_motivation_ai/models/video.dart';
 
@@ -193,5 +194,34 @@ class ActivityNotifier extends StateNotifier<List<ActivityItem>> {
   void markAllRead() {
     if (state.every((a) => a.read)) return;
     state = [for (final a in state) a.markRead()];
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Services marketplace
+// ---------------------------------------------------------------------------
+
+final servicesProvider = StateNotifierProvider<ServicesNotifier, List<OrbitService>>((ref) => ServicesNotifier());
+
+final serviceCategoryProvider = StateProvider<String>((ref) => serviceCategories.first);
+
+final serviceProvider = Provider.family<OrbitService?, String>((ref, id) {
+  for (final s in ref.watch(servicesProvider)) {
+    if (s.id == id) return s;
+  }
+  return null;
+});
+
+class ServicesNotifier extends StateNotifier<List<OrbitService>> {
+  ServicesNotifier([List<OrbitService>? initial]) : super(initial ?? seedServices());
+
+  /// Lists a new service of mine at the top of the marketplace.
+  void add(OrbitService service) => state = [service, ...state];
+
+  void remove(String id) => state = [for (final s in state) if (s.id != id) s];
+
+  /// Featured listings sort first (an Orbit Plus perk for my own listings).
+  void setFeatured(String id, bool featured) {
+    state = [for (final s in state) s.id == id ? s.copyWith(featured: featured) : s];
   }
 }

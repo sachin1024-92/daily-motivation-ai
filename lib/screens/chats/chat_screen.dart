@@ -9,11 +9,27 @@ import 'package:daily_motivation_ai/models/post.dart';
 import 'package:daily_motivation_ai/models/user.dart';
 import 'package:daily_motivation_ai/providers/app_providers.dart';
 import 'package:daily_motivation_ai/providers/chats_provider.dart';
+import 'package:daily_motivation_ai/providers/plus_provider.dart';
 import 'package:daily_motivation_ai/providers/profile_provider.dart';
 import 'package:daily_motivation_ai/screens/chats/chats_screen.dart';
 import 'package:daily_motivation_ai/utils/format.dart';
 import 'package:daily_motivation_ai/widgets/art_canvas.dart';
 import 'package:daily_motivation_ai/widgets/avatar.dart';
+
+/// Spends one free Orbit AI message, or opens the Plus paywall when today's
+/// allowance is used up. Returns whether the message may be sent.
+bool useAiMessage(BuildContext context, WidgetRef ref) {
+  final left = ref.read(aiMessagesLeftProvider);
+  if (left != null && left <= 0) {
+    openPlus(
+      context,
+      reason: 'You\'ve used today\'s $freeAiMessagesPerDay free Orbit AI messages. Plus makes them unlimited.',
+    );
+    return false;
+  }
+  if (left != null) ref.read(aiQuotaProvider.notifier).use();
+  return true;
+}
 
 const _aiStarters = ['Motivate me 🔥', 'Plan my day 📋', 'Caption ideas ✍️', 'Help me focus 🎯'];
 
@@ -50,6 +66,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   void _send([String? text]) {
     final value = text ?? _input.text;
     if (value.trim().isEmpty) return;
+    if (ref.read(chatProvider(widget.chatId))?.kind == ChatKind.bot && !useAiMessage(context, ref)) return;
     ref.read(chatsProvider.notifier).send(widget.chatId, value, replyToId: _replyToId);
     _input.clear();
     setState(() => _replyToId = null);
@@ -132,6 +149,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     });
 
     final users = ref.watch(usersProvider);
+    final aiLeft = ref.watch(aiMessagesLeftProvider);
     final peer = users[chat.peerId];
     final scheme = Theme.of(context).colorScheme;
     final messages = chat.messages;
@@ -208,6 +226,19 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       ),
       body: Column(
         children: [
+          if (chat.kind != ChatKind.bot && chat.ownerId != meId)
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+              color: scheme.surfaceContainerHighest,
+              child: Text(
+                chat.kind == ChatKind.channel
+                    ? 'Sample channel in the Orbit preview'
+                    : 'Sample conversation: replies are simulated in the Orbit preview',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant),
+              ),
+            ),
           Expanded(
             child: ListView.builder(
               reverse: true,
@@ -274,7 +305,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                             onSubmitted: (_) => _send(),
                             decoration: InputDecoration(
                               hintText: switch (chat.kind) {
-                                ChatKind.bot => 'Ask Orbit AI anything…',
+                                ChatKind.bot => aiLeft == null ? 'Ask Orbit AI anything…' : 'Ask Orbit AI · $aiLeft free today',
                                 ChatKind.channel => 'Broadcast to ${compactCount(chat.subscribers)} subscribers…',
                                 _ => 'Message',
                               },
@@ -584,6 +615,7 @@ class _AttachmentCard extends StatelessWidget {
         SharedKind.video => Icons.smart_display_rounded,
         SharedKind.story => Icons.amp_stories_rounded,
         SharedKind.profile => Icons.person_rounded,
+        SharedKind.service => Icons.storefront_rounded,
       };
 
   @override

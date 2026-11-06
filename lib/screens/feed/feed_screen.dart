@@ -10,6 +10,8 @@ import 'package:daily_motivation_ai/screens/feed/daily_spark_card.dart';
 import 'package:daily_motivation_ai/screens/feed/post_card.dart';
 import 'package:daily_motivation_ai/screens/feed/stories_bar.dart';
 import 'package:daily_motivation_ai/screens/search/search_screen.dart';
+import 'package:daily_motivation_ai/screens/services/services_screen.dart';
+import 'package:daily_motivation_ai/services/ads_service.dart';
 import 'package:daily_motivation_ai/widgets/avatar.dart';
 import 'package:daily_motivation_ai/widgets/common.dart';
 
@@ -25,6 +27,7 @@ class FeedScreen extends ConsumerWidget {
     final following = ref.watch(followingProvider);
     final me = ref.watch(profileProvider);
     final unread = ref.watch(unreadActivityProvider);
+    final showAds = ref.watch(showAdsProvider);
 
     final visible = switch (filter) {
       FeedFilter.forYou => posts,
@@ -44,6 +47,12 @@ class FeedScreen extends ConsumerWidget {
                 tooltip: 'Search',
                 icon: const Icon(Icons.search_rounded),
                 onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const SearchScreen())),
+              ),
+              IconButton(
+                key: const ValueKey('open-services'),
+                tooltip: 'Services',
+                icon: const Icon(Icons.storefront_outlined),
+                onPressed: () => openServices(context),
               ),
               IconButton(
                 tooltip: 'Activity',
@@ -67,6 +76,7 @@ class FeedScreen extends ConsumerWidget {
           const SliverToBoxAdapter(child: StoriesBar()),
           SliverToBoxAdapter(child: _ComposerPrompt(firstName: me.name.split(' ').first)),
           const SliverToBoxAdapter(child: DailySparkCard()),
+          const SliverToBoxAdapter(child: ServicesShelf()),
           SliverToBoxAdapter(
             child: Padding(
               padding: const EdgeInsets.fromLTRB(12, 10, 12, 4),
@@ -94,8 +104,18 @@ class FeedScreen extends ConsumerWidget {
             )
           else
             SliverList.builder(
-              itemCount: visible.length,
-              itemBuilder: (context, i) => PostCard(key: ValueKey(visible[i].id), postId: visible[i].id),
+              // Free users see a sponsored card after every fourth post.
+              itemCount: visible.length + (showAds ? visible.length ~/ 4 : 0),
+              itemBuilder: (context, i) {
+                if (showAds && (i + 1) % 5 == 0) {
+                  return FeedAdCard(
+                    key: ValueKey('ad-$i'),
+                    onRemoveAds: () => openPlus(context, reason: 'Orbit Plus removes every ad.'),
+                  );
+                }
+                final post = visible[showAds ? i - (i + 1) ~/ 5 : i];
+                return PostCard(key: ValueKey(post.id), postId: post.id);
+              },
             ),
           const SliverToBoxAdapter(child: _CaughtUp()),
         ],

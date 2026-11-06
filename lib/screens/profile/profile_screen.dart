@@ -9,7 +9,8 @@ import 'package:daily_motivation_ai/models/user.dart';
 import 'package:daily_motivation_ai/models/world.dart';
 import 'package:daily_motivation_ai/providers/content_providers.dart';
 import 'package:daily_motivation_ai/providers/profile_provider.dart';
-import 'package:daily_motivation_ai/providers/theme_provider.dart';
+import 'package:daily_motivation_ai/providers/plus_provider.dart';
+import 'package:daily_motivation_ai/screens/services/services_screen.dart';
 import 'package:daily_motivation_ai/screens/watch/watch_screen.dart';
 import 'package:daily_motivation_ai/screens/wellbeing/wellbeing_screen.dart';
 import 'package:daily_motivation_ai/services/external_share.dart';
@@ -19,7 +20,7 @@ import 'package:daily_motivation_ai/widgets/avatar.dart';
 import 'package:daily_motivation_ai/widgets/common.dart';
 import 'package:daily_motivation_ai/widgets/sheets.dart';
 
-enum _ProfileTab { posts, reels, videos, saved }
+enum _ProfileTab { posts, reels, videos, services, saved }
 
 /// Instagram-style profile with a grid, plus the "worlds" you're on
 /// elsewhere so people can find you on any app.
@@ -45,6 +46,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     final saved = isMe ? ref.watch(feedProvider).where((p) => p.saved).toList() : const <Post>[];
     final reels = ref.watch(reelsProvider).where((r) => r.authorId == user.id).toList();
     final videos = ref.watch(videosProvider).where((v) => v.channelId == user.id).toList();
+    final services = ref.watch(servicesProvider).where((v) => v.providerId == user.id).toList();
+    final plus = ref.watch(isPlusProvider);
     final ring = ref.watch(storiesProvider.select((groups) {
       for (final g in groups) {
         if (g.userId == user.id) return isMe || !g.seen ? StoryRing.unseen : StoryRing.seen;
@@ -55,6 +58,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       _ProfileTab.posts,
       _ProfileTab.reels,
       if (videos.isNotEmpty) _ProfileTab.videos,
+      if (services.isNotEmpty) _ProfileTab.services,
       if (isMe) _ProfileTab.saved,
     ];
     final tab = tabs.contains(_tab) ? _tab : _ProfileTab.posts;
@@ -66,14 +70,15 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         actions: [
           if (isMe) ...[
             IconButton(
-              tooltip: 'Toggle theme',
-              icon: const Icon(Icons.dark_mode_outlined),
-              onPressed: () => ref.read(themeProvider.notifier).toggleTheme(),
-            ),
-            IconButton(
               tooltip: 'Wellbeing',
               icon: const Icon(Icons.spa_outlined),
               onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const WellbeingScreen())),
+            ),
+            IconButton(
+              key: const ValueKey('open-settings'),
+              tooltip: 'Settings',
+              icon: const Icon(Icons.settings_outlined),
+              onPressed: () => openSettings(context),
             ),
           ] else
             IconButton(
@@ -131,7 +136,25 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     ],
                   ),
                   const SizedBox(height: 12),
-                  UserName(user: user, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800)),
+                  Wrap(
+                    spacing: 8,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: [
+                      UserName(user: user, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800)),
+                      if (isMe && plus)
+                        const GradientMask(
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.workspace_premium_rounded, size: 18, color: Colors.white),
+                              Text(' Plus', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800)),
+                            ],
+                          ),
+                        ),
+                      if (!isMe && !user.isBot)
+                        Text('Sample account', style: TextStyle(color: muted, fontSize: 12, fontWeight: FontWeight.w600)),
+                    ],
+                  ),
                   if (user.bio.isNotEmpty)
                     Padding(
                       padding: const EdgeInsets.only(top: 4),
@@ -205,6 +228,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                             ),
                           ],
                   ),
+                  if (isMe && !plus)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 14),
+                      child: PlusCta(onTap: () => openPlus(context)),
+                    ),
                   if (isMe) const _WorldsCard(),
                 ],
               ),
@@ -234,6 +262,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                               _ProfileTab.posts => Icons.grid_on_rounded,
                               _ProfileTab.reels => Icons.slow_motion_video_rounded,
                               _ProfileTab.videos => Icons.smart_display_outlined,
+                              _ProfileTab.services => Icons.storefront_outlined,
                               _ProfileTab.saved => Icons.bookmark_border_rounded,
                             },
                             color: t == tab ? null : muted,
@@ -283,6 +312,12 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                       ),
                     ),
                   ],
+            _ProfileTab.services => [
+                SliverList.builder(
+                  itemCount: services.length,
+                  itemBuilder: (context, i) => ServiceCard(service: services[i]),
+                ),
+              ],
             _ProfileTab.videos => [
                 SliverList.builder(
                   itemCount: videos.length,

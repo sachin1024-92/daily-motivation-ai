@@ -28,7 +28,7 @@ Future<void> pumpApp(WidgetTester tester) async {
 }
 
 void main() {
-  setUp(() => SharedPreferences.setMockInitialValues({}));
+  setUp(() => SharedPreferences.setMockInitialValues({'welcome_seen': true}));
 
   testWidgets('App starts on the feed with the unified navigation', (tester) async {
     await pumpApp(tester);
@@ -72,8 +72,10 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('publish')));
     await tester.pumpAndSettle();
 
-    expect(find.text('Hello from one app ✨'), findsOneWidget);
     expect(find.text('Published to Feed · My channel ✨'), findsOneWidget);
+    final newPost = find.text('Hello from one app ✨');
+    await tester.scrollUntilVisible(newPost, 300, scrollable: feedScrollable());
+    expect(newPost, findsOneWidget);
     final channel = containerOf(tester).read(chatProvider('c-my-channel'))!;
     expect(channel.lastMessage!.attachment!.kind, SharedKind.post);
   });

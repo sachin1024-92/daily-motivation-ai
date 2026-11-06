@@ -34,3 +34,14 @@ const List<List<Color>> artPalettes = [
 ];
 
 const List<String> artEmojis = ['✨', '🌅', '🏔️', '🎧', '💻', '🍜', '🏃', '🌊', '🔥', '🌸', '🚀', '📚'];
+
+/// Extra vibes unlocked by Orbit Plus.
+const List<List<Color>> premiumPalettes = [
+  [Color(0xFF00F5A0), Color(0xFF00D9F5), Color(0xFF7C4DFF)],
+  [Color(0xFFFFD700), Color(0xFFFF8C00), Color(0xFF8B0000)],
+  [Color(0xFF12C2E9), Color(0xFFC471ED), Color(0xFFF64F59)],
+  [Color(0xFF232526), Color(0xFF414345), Color(0xFFD4AF37)],
+];
+
+/// Every vibe in the composer; indexes at or past [artPalettes.length] are Plus-only.
+const List<List<Color>> allVibes = [...artPalettes, ...premiumPalettes];

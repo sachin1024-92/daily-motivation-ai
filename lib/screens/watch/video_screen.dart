@@ -7,6 +7,7 @@ import 'package:daily_motivation_ai/data/seed.dart';
 import 'package:daily_motivation_ai/models/chat.dart';
 import 'package:daily_motivation_ai/models/video.dart';
 import 'package:daily_motivation_ai/providers/chats_provider.dart';
+import 'package:daily_motivation_ai/screens/chats/chat_screen.dart';
 import 'package:daily_motivation_ai/providers/content_providers.dart';
 import 'package:daily_motivation_ai/providers/profile_provider.dart';
 import 'package:daily_motivation_ai/screens/watch/watch_screen.dart';
@@ -76,6 +77,7 @@ class _VideoScreenState extends ConsumerState<VideoScreen> {
   }
 
   void _askAi(Video video) {
+    if (!useAiMessage(context, ref)) return;
     final chats = ref.read(chatsProvider.notifier);
     final chatId = chats.ensureDirectChat(orbitAiId, title: 'Orbit AI');
     chats.send(

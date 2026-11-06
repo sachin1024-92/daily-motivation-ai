@@ -8,7 +8,7 @@ enum ChatKind { direct, group, channel, bot }
 
 enum MessageStatus { sending, sent, delivered, read }
 
-enum SharedKind { post, reel, video, story, profile }
+enum SharedKind { post, reel, video, story, profile, service }
 
 /// A piece of Orbit content embedded in a chat message, so anything in the
 /// app (a post, reel, video, story or profile) can be passed around in chats.
@@ -33,6 +33,7 @@ class SharedRef {
         SharedKind.video => 'Video',
         SharedKind.story => 'Story',
         SharedKind.profile => 'Profile',
+        SharedKind.service => 'Service',
       };
 }
 

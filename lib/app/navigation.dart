@@ -7,8 +7,11 @@ import 'package:daily_motivation_ai/providers/profile_provider.dart';
 import 'package:daily_motivation_ai/screens/chats/chat_screen.dart';
 import 'package:daily_motivation_ai/screens/create/composer_screen.dart';
 import 'package:daily_motivation_ai/screens/feed/post_card.dart';
+import 'package:daily_motivation_ai/screens/plus/plus_screen.dart';
 import 'package:daily_motivation_ai/screens/profile/profile_screen.dart';
 import 'package:daily_motivation_ai/screens/reels/reels_screen.dart';
+import 'package:daily_motivation_ai/screens/services/services_screen.dart';
+import 'package:daily_motivation_ai/screens/settings/settings_screen.dart';
 import 'package:daily_motivation_ai/screens/stories/story_viewer.dart';
 import 'package:daily_motivation_ai/screens/watch/video_screen.dart';
 
@@ -59,6 +62,14 @@ Future<void> openComposer(BuildContext context, {Set<PublishTarget>? targets, St
   );
 }
 
+void openServices(BuildContext context) => _push(context, const ServicesScreen());
+
+void openSettings(BuildContext context) => _push(context, const SettingsScreen());
+
+/// Opens the Orbit Plus paywall. [reason] explains what triggered it.
+Future<void> openPlus(BuildContext context, {String? reason}) =>
+    Navigator.of(context).push(MaterialPageRoute(fullscreenDialog: true, builder: (_) => PlusScreen(reason: reason)));
+
 /// Opens whatever was shared into a chat.
 void openSharedRef(BuildContext context, WidgetRef ref, SharedRef item) {
   switch (item.kind) {
@@ -77,5 +88,7 @@ void openSharedRef(BuildContext context, WidgetRef ref, SharedRef item) {
       }
     case SharedKind.profile:
       openProfile(context, item.ownerId);
+    case SharedKind.service:
+      showServiceDetail(context, item.id);
   }
 }

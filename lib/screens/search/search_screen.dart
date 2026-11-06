@@ -6,6 +6,7 @@ import 'package:daily_motivation_ai/models/user.dart';
 import 'package:daily_motivation_ai/providers/chats_provider.dart';
 import 'package:daily_motivation_ai/providers/content_providers.dart';
 import 'package:daily_motivation_ai/providers/profile_provider.dart';
+import 'package:daily_motivation_ai/screens/services/services_screen.dart';
 import 'package:daily_motivation_ai/utils/format.dart';
 import 'package:daily_motivation_ai/widgets/art_canvas.dart';
 import 'package:daily_motivation_ai/widgets/avatar.dart';
@@ -107,9 +108,10 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     final posts = ref.watch(feedProvider).where((p) => has(p.text) || has(p.location ?? '')).toList();
     final reels = ref.watch(reelsProvider).where((r) => has(r.caption) || has(r.audio)).toList();
     final videos = ref.watch(videosProvider).where((v) => has(v.title) || has(v.description) || has(v.category)).toList();
+    final services = ref.watch(servicesProvider).where((v) => has(v.title) || has(v.description) || has(v.category)).toList();
     final users0 = ref.watch(usersProvider);
 
-    if (people.isEmpty && chats.isEmpty && posts.isEmpty && reels.isEmpty && videos.isEmpty) {
+    if (people.isEmpty && chats.isEmpty && posts.isEmpty && reels.isEmpty && videos.isEmpty && services.isEmpty) {
       return Center(child: Text('No results for "${_query.text.trim()}"'));
     }
 
@@ -126,6 +128,16 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
               title: UserName(user: u),
               subtitle: Text('@${u.handle}'),
               onTap: () => openProfile(context, u.id),
+            ),
+        ],
+        if (services.isNotEmpty) ...[
+          const SectionHeader('Services'),
+          for (final v in services)
+            ListTile(
+              leading: thumb(ArtCanvas(art: v.art, emojiSize: 22, borderRadius: BorderRadius.circular(12))),
+              title: Text(v.title),
+              subtitle: Text('${users0[v.providerId]?.name} · ${v.priceLabel} ${v.unit}'),
+              onTap: () => showServiceDetail(context, v.id),
             ),
         ],
         if (chats.isNotEmpty) ...[
