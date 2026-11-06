@@ -11,7 +11,7 @@ class HabitsScreen extends ConsumerWidget {
     final habitsNotifier = ref.read(habitsProvider.notifier);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('My Habits')),
+      appBar: AppBar(title: const Text('Daily Study Targets')),
       body: ListView.builder(
         itemCount: habits.length,
         itemBuilder: (context, index) {

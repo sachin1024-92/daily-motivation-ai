@@ -1,83 +1,80 @@
-# 🚀 Daily Motivation AI
+# 🎓 PrepVerse AI
 
-**Grok-powered daily motivation, habit tracking, focus timers & AI encouragement app.**
+**One learning app for every goal: JEE, NEET, GATE, SSC/Banking, school (Class 6–10) and career upskilling.**
+It has live classes, recorded courses, mock tests, speed quizzes, flashcards, word games, engineering tools and a 24×7 AI doubt solver.
 
-Built with Flutter. Designed for real daily use and future Play Store monetization.
+Built with Flutter (Android, iOS and web from one codebase). This app grew out of the *Daily Motivation AI* repo, and the original quotes, habits and focus timer are still here inside the **Study zone**.
 
-## Current Status (August 2026)
+## What's inside
 
-- Core MVP complete (quotes, habits, focus timer, AI chat structure)
-- Offline-first architecture ready
-- Prepared for real Grok / xAI API integration
-- **CI is now green** (analyze + tests pass)
-- Next priority: add platform folders → enable APK/AAB builds → Firebase + Play Store
+| Area | Features |
+|---|---|
+| **Onboarding** | Pick your name and goal (JEE · NEET · GATE & B.Tech · Govt jobs · School · Upskill). Every screen is then personalised to that goal. |
+| **Home** | Streak 🔥, XP and level, quick-start tiles, live and upcoming classes, continue learning, daily GK capsule, quote of the day |
+| **Learn** | Exam batches, career programs and free courses. Chapter-wise curriculum with video, notes and practice lessons, a free preview lesson, enrolment, a progress bar per course and a certificate when you finish |
+| **Lesson player** | Player with seek and 0.75–2× speed, written notes, "Ask a doubt" and "Practice this chapter" shortcuts, mark complete (+20 XP) |
+| **Live classes** | Today's schedule with Join and Remind buttons. The live room has a viewer count, live chat, raise hand and in-class polls that award XP |
+| **Practice** | **Speed Quiz** (20 s per question, auto-advances, NCERT-speed style) · **Full Mock Test** (exam timer, +4/−1 marking, question palette, mark for review) · **Daily Quiz** (same 5 questions for everyone that day) · subject-wise practice · bookmarks · test history |
+| **Result analysis** | Score ring, correct/wrong/skipped, average time per question, topic-wise accuracy, "focus next on" weak topics, full answer review with explanations |
+| **Flashcards** | Leitner-box spaced repetition for formulas and facts |
+| **Word Builder** | 90-second vocabulary game for the English/verbal sections |
+| **Engineering toolkit** | Quadratic solver, Ohm's law and power, series/parallel resistors, unit converter (length, mass, energy, pressure) |
+| **AI Doubt Solver** | Claude-powered step-by-step tutor that knows your exam goal. It falls back to an offline tutor (formula cards, question bank, 7-day revision plan) when no AI is configured or there's no internet |
+| **Profile** | Stats, goal switcher, daily study targets (habits), Pomodoro focus timer (+XP), badges, weekly leaderboard, dark mode |
 
-## Features
+Built-in content: 7 courses, 60 exam-style MCQs with explanations, 26 flashcards, GK capsules and 3 word rounds. Everything is in `lib/data/` so you can expand it.
 
-- 📅 Daily inspirational quotes (local + AI-ready)
-- ✅ Habit tracking with streaks
-- ⏱️ Focus / Pomodoro timer with sessions
-- 🤖 AI Chat powered by Grok (structure ready for live API)
-- 📊 Simple progress & mood check-ins
-- 🔒 Offline-first with local persistence
-- Dark / light theme support
-
-## Tech Stack
-
-- Flutter 3.x / Dart
-- Riverpod for state management
-- SharedPreferences for local storage
-- HTTP client ready for Grok API
-- Architecture prepared for Firebase (Auth, Firestore, Analytics)
-
-## Getting Started
+## Run it
 
 ```bash
-git clone https://github.com/sachin1024-92/daily-motivation-ai.git
-cd daily-motivation-ai
 flutter pub get
-flutter run
+flutter run                # Android / iOS device or emulator
+flutter run -d chrome      # web
+flutter test               # 12 tests: content integrity, logic, widgets
 ```
 
-### Enable full CI builds (APK + AAB)
+## Turn on the online AI tutor
 
-The repository currently contains only the Dart source (`lib/`).  
-To make the GitHub Actions workflow also build release APK and App Bundle, run this **once** on your local machine (where you already have the full project):
+The tutor calls the Claude API (`claude-opus-5-5`). Keys are passed at build time and never committed:
 
 ```bash
-cd daily-motivation-ai
-flutter create . --platforms=android,ios,web
-# Review the generated folders, then:
-git add android ios web .metadata analysis_options.yaml pubspec.lock
-git commit -m "Add platform folders so CI can build APK/AAB"
-git push
+# Production: run a tiny backend that holds the key and forwards to the Claude Messages API
+flutter run --dart-define=AI_PROXY_URL=https://your-backend.example.com/tutor
+
+# Local development only (a key inside an APK can be extracted by anyone)
+flutter run --dart-define=ANTHROPIC_API_KEY=sk-ant-...
 ```
 
-After that, every push to `main` will produce downloadable APK and AAB artifacts.
+With neither set, the app uses the offline tutor.
 
-## Configuration
+## Build the APK
 
-1. Get a Grok API key from xAI
-2. Add it to the Grok service file
-3. (Optional) Connect Firebase for cloud sync and user accounts
+CI (`.github/workflows/flutter-ci.yml`) runs analyze, tests, a release APK and an AAB on every push. Download them from the run's **Artifacts**. To build locally:
 
-## Roadmap
+```bash
+flutter build apk --release
+# → build/app/outputs/flutter-apk/app-release.apk
+```
 
-- [x] Core screens & local state
-- [x] GitHub Actions CI (analyze + tests)
-- [ ] Live Grok streaming responses
-- [ ] Firebase Auth + cloud habit sync
-- [ ] Beautiful onboarding + polish
-- [ ] Play Store release (free + premium tiers)
-- [ ] Widgets & notifications
+Before publishing to the Play Store, set your own `applicationId` in `android/app/build.gradle.kts` and configure a release signing key.
 
-## Why This Project Matters
+## Project structure
 
-Most motivation apps are either too basic or too subscription-heavy.  
-This one combines practical habit tools with real AI encouragement — built by someone who actually uses it daily while doing a Ph.D. and building side income.
+```
+lib/
+  data/          goals, courses, question bank, flashcards, live schedule, word rounds
+  models/        quiz results, habits, quotes
+  providers/     profile + progress (XP, streaks, results, bookmarks, flashcards), habits, theme
+  services/      AI tutor (Claude API + offline fallback)
+  screens/       home, onboarding, learn/, practice/, live/, doubts, profile, habits, focus
+  widgets/       shared UI pieces
+```
 
-## License
+## Roadmap to production
 
-MIT
-
-Built in public with Grok. Part of [@sachin1024-92](https://github.com/sachin1024-92) open source tools.
+- Backend (e.g. Firebase or Supabase): auth with phone OTP, cloud sync, a real leaderboard, an admin panel for content
+- Video hosting (HLS) with the `video_player` package, offline downloads
+- Real-time live classes (WebRTC/LL-HLS) and chat
+- Payments (Razorpay or UPI) for batches and programs
+- Photo doubts (camera → Claude vision), Hindi and other languages
+- Push notifications for class reminders and streaks

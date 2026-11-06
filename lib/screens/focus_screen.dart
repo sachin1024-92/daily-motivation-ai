@@ -1,14 +1,18 @@
-import 'package:flutter/material.dart';
 import 'dart:async';
 
-class FocusScreen extends StatefulWidget {
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import 'package:daily_motivation_ai/providers/app_state.dart';
+
+class FocusScreen extends ConsumerStatefulWidget {
   const FocusScreen({super.key});
 
   @override
-  State<FocusScreen> createState() => _FocusScreenState();
+  ConsumerState<FocusScreen> createState() => _FocusScreenState();
 }
 
-class _FocusScreenState extends State<FocusScreen> {
+class _FocusScreenState extends ConsumerState<FocusScreen> {
   int _seconds = 25 * 60;
   Timer? _timer;
   bool _isRunning = false;
@@ -16,11 +20,13 @@ class _FocusScreenState extends State<FocusScreen> {
   void _startTimer() {
     _timer?.cancel();
     _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (!mounted) return;
       if (_seconds > 0) {
         setState(() => _seconds--);
       } else {
         _timer?.cancel();
         setState(() => _isRunning = false);
+        ref.read(progressProvider.notifier).addFocusMinutes(25);
         _showSessionComplete();
       }
     });
@@ -45,7 +51,7 @@ class _FocusScreenState extends State<FocusScreen> {
       context: context,
       builder: (_) => AlertDialog(
         title: const Text('🎉 Session Complete!'),
-        content: const Text('Great focus! Take a short break or start another session.'),
+        content: const Text('Great focus! +25 XP. Take a 5-minute break, then go again.'),
         actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('OK'))],
       ),
     );

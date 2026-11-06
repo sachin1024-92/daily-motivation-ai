@@ -21,9 +21,10 @@ class HabitsNotifier extends StateNotifier<List<Habit>> {
     } else {
       // Default habits
       state = [
-        const Habit(id: '1', title: 'Morning meditation', description: '10 minutes mindfulness', streak: 5),
-        const Habit(id: '2', title: 'Read 20 pages', description: 'Non-fiction or self-improvement', streak: 12),
-        const Habit(id: '3', title: 'Exercise / walk', description: 'Move your body daily', streak: 3),
+        const Habit(id: '1', title: 'Watch 1 lecture', description: 'Finish one lesson from your course'),
+        const Habit(id: '2', title: 'Solve 20 questions', description: 'Speed quiz, DPP or mock section'),
+        const Habit(id: '3', title: 'Revise flashcards', description: 'Clear today\'s spaced-repetition deck'),
+        const Habit(id: '4', title: '2 focus sessions', description: '2 × 25-minute Pomodoros'),
       ];
       await _saveHabits();
     }
