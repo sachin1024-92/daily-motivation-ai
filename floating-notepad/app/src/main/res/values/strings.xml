@@ -53,4 +53,21 @@
     <string name="notification_text">Tap to open your note</string>
     <string name="notification_open_app">Open app</string>
     <string name="notification_hide">Hide bubble</string>
+
+    <string name="support_title">Support FloatNote</string>
+    <string name="support_pitch">FloatNote is free forever, with no ads, no tracking and no account. If it makes your day easier, you can chip in to keep it growing. Supporters unlock extra bubble colours as a thank-you.</string>
+    <string name="support_is_supporter">💛 You’re a supporter. Thank you!</string>
+    <string name="support_not_yet">Pick any amount, once. No subscriptions.</string>
+    <string name="support_loading">Loading support options…</string>
+    <string name="support_store_only">Support options appear when FloatNote is installed from Google Play.</string>
+    <string name="support_donate">Donate</string>
+    <string name="support_tier">%1$s · %2$s</string>
+    <string name="support_colors_title">Bubble colour</string>
+    <string name="support_locked">Become a supporter to unlock this colour.</string>
+    <string name="support_promise">Every feature stays free. Supporting only adds cosmetic extras.</string>
+    <string name="support_no_browser">No browser found to open the donation page.</string>
+    <string name="support_unavailable">Google Play billing isn’t available on this device.</string>
+    <string name="support_pending">Payment pending. Perks unlock once it completes.</string>
+    <string name="support_thanks">Thank you for supporting FloatNote! Colours unlocked.</string>
+    <string name="support_failed">The purchase didn’t go through. Please try again.</string>
 </resources>

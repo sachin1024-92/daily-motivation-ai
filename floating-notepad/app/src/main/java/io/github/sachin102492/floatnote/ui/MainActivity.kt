@@ -15,6 +15,7 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.recyclerview.widget.ItemTouchHelper
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import com.google.android.material.appbar.MaterialToolbar
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.floatingactionbutton.ExtendedFloatingActionButton
 import com.google.android.material.materialswitch.MaterialSwitch
@@ -47,6 +48,15 @@ class MainActivity : AppCompatActivity(), NoteRepository.Listener {
         setContentView(R.layout.activity_main)
         root = findViewById(R.id.root)
         root.padForSystemBars()
+
+        findViewById<MaterialToolbar>(R.id.toolbar).apply {
+            inflateMenu(R.menu.menu_main)
+            setOnMenuItemClickListener { item ->
+                if (item.itemId != R.id.action_support) return@setOnMenuItemClickListener false
+                startActivity(Intent(this@MainActivity, SupportActivity::class.java))
+                true
+            }
+        }
 
         bubbleSwitch = findViewById(R.id.bubble_switch)
         bubbleStatus = findViewById(R.id.bubble_status)

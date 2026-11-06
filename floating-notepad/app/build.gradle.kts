@@ -17,8 +17,29 @@ android {
         applicationId = "io.github.sachin102492.floatnote"
         minSdk = 26
         targetSdk = 36
-        versionCode = 1
-        versionName = "1.0.0"
+        versionCode = 2
+        versionName = "1.1.0"
+    }
+
+    buildFeatures {
+        buildConfig = true
+    }
+
+    // "play" sells optional supporter tips through Google Play Billing.
+    // "foss" has no Google code (for F-Droid): every perk is free and it links to donations.
+    flavorDimensions += "store"
+    productFlavors {
+        create("play") {
+            dimension = "store"
+            buildConfigField("boolean", "PERKS_FREE", "false")
+            buildConfigField("String", "DONATE_URL", "\"\"")
+        }
+        create("foss") {
+            dimension = "store"
+            versionNameSuffix = "-foss"
+            buildConfigField("boolean", "PERKS_FREE", "true")
+            buildConfigField("String", "DONATE_URL", "\"https://github.com/sponsors/sachin1024-92\"")
+        }
     }
 
     signingConfigs {
@@ -77,4 +98,5 @@ dependencies {
     implementation("androidx.coordinatorlayout:coordinatorlayout:1.3.0")
     implementation("androidx.dynamicanimation:dynamicanimation:1.0.0")
     implementation("com.google.android.material:material:1.12.0")
+    "playImplementation"("com.android.billingclient:billing-ktx:8.0.0")
 }

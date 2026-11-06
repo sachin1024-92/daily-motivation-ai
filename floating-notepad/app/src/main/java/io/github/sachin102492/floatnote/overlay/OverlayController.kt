@@ -8,6 +8,7 @@ import android.content.Context
 import android.content.Intent
 import android.graphics.PixelFormat
 import android.graphics.Point
+import android.graphics.drawable.GradientDrawable
 import android.hardware.display.DisplayManager
 import android.os.Build
 import android.os.Handler
@@ -30,6 +31,7 @@ import android.view.animation.DecelerateInterpolator
 import android.view.animation.OvershootInterpolator
 import android.view.inputmethod.InputMethodManager
 import android.widget.EditText
+import android.widget.ImageView
 import android.widget.TextView
 import android.widget.Toast
 import androidx.core.widget.doAfterTextChanged
@@ -40,6 +42,7 @@ import io.github.sachin102492.floatnote.R
 import io.github.sachin102492.floatnote.data.Note
 import io.github.sachin102492.floatnote.data.NoteRepository
 import io.github.sachin102492.floatnote.notes
+import io.github.sachin102492.floatnote.support.Perks
 import io.github.sachin102492.floatnote.ui.EditorActivity
 import io.github.sachin102492.floatnote.util.AutoSaver
 import kotlin.math.hypot
@@ -127,6 +130,11 @@ class OverlayController(
     private val panelRoot = inflater.inflate(R.layout.overlay_panel, null) as OverlayRootLayout
     private val panelCard: View = panelRoot.findViewById(R.id.panel_card)
     private val panelContent: View = panelRoot.findViewById(R.id.panel_content)
+    private val panelHeader: View = panelRoot.findViewById(R.id.panel_header)
+    private val headerIcons: List<ImageView> = listOf(
+        R.id.header_icon, R.id.btn_prev, R.id.btn_next, R.id.btn_new,
+        R.id.btn_copy, R.id.btn_open, R.id.btn_minimize,
+    ).map { panelRoot.findViewById(it) }
     private val titleInput: EditText = panelRoot.findViewById(R.id.note_title)
     private val bodyInput: EditText = panelRoot.findViewById(R.id.note_body)
     private val indexLabel: TextView = panelRoot.findViewById(R.id.note_index)
@@ -165,7 +173,24 @@ class OverlayController(
         panelRoot.findViewById<View>(R.id.btn_minimize).setOnClickListener { collapse() }
     }
 
+    /** Paints the bubble and panel header in the user's chosen [BubbleColor]. */
+    fun applyStyle() {
+        val color = Perks.bubbleColor(service)
+        bubbleIcon.background = GradientDrawable(
+            GradientDrawable.Orientation.TL_BR,
+            intArrayOf(color.start, color.end),
+        ).apply {
+            shape = GradientDrawable.OVAL
+            setStroke(dp(2), BUBBLE_RING)
+        }
+        (bubbleIcon as ImageView).setColorFilter(color.icon)
+        panelHeader.setBackgroundColor(color.header)
+        headerIcons.forEach { it.setColorFilter(color.icon) }
+        indexLabel.setTextColor(color.icon)
+    }
+
     fun show() {
+        applyStyle()
         val screen = screenSize()
         bubbleParams.y = clampY((prefs.getFloat(KEY_Y, 0.3f) * screen.y).roundToInt())
         // Start just off the edge and spring in.
@@ -427,6 +452,7 @@ class OverlayController(
         hideDismissTarget()
 
         setBubbleTouchable(false)
+        applyStyle()
         bindNote(repo.activeOrNewest())
         layoutPanel()
         addWindow(panelRoot, panelParams)
@@ -694,5 +720,6 @@ class OverlayController(
         const val DISABLED_ALPHA = 0.35f
         const val MAX_FLING_VELOCITY = 8000f
         val WHITESPACE = Regex("\\s+")
+        const val BUBBLE_RING = 0xE6FFFFFF.toInt()
     }
 }

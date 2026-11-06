@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
 
     <!-- Draw the floating bubble and notepad over other apps. -->
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
@@ -7,7 +8,10 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
-    <!-- Deliberately no INTERNET permission: notes never leave the device. -->
+    <!-- No Internet access, ever: notes never leave the device. Strip it even if a library asks. -->
+    <uses-permission
+        android:name="android.permission.INTERNET"
+        tools:node="remove" />
 
     <application
         android:name=".FloatNoteApp"
@@ -34,6 +38,11 @@
             android:exported="false"
             android:parentActivityName=".ui.MainActivity"
             android:windowSoftInputMode="adjustResize" />
+
+        <activity
+            android:name=".ui.SupportActivity"
+            android:exported="false"
+            android:parentActivityName=".ui.MainActivity" />
 
         <service
             android:name=".overlay.FloatingService"

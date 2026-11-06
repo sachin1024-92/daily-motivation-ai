@@ -22,7 +22,8 @@ It has no ads, no trackers, and no Internet permission.
 
 Every push builds the app in GitHub Actions (**Actions → FloatNote Android → Artifacts**):
 
-- `FloatNote.apk` is the installable release build.
+- `FloatNote.apk` is the installable Play-flavour build.
+- `FloatNote-foss.apk` is the Google-free build with all colours unlocked.
 - `FloatNote.aab` is the App Bundle for Google Play.
 
 To publish a GitHub Release with the APK attached, push a tag:
@@ -37,7 +38,7 @@ You need Android Studio (or JDK 17 with the Android SDK):
 
 ```bash
 cd floating-notepad
-./gradlew assembleDebug      # app/build/outputs/apk/debug/app-debug.apk
+./gradlew assemblePlayDebug   # app/build/outputs/apk/play/debug/app-play-debug.apk
 ```
 
 ## Release signing
@@ -56,6 +57,8 @@ update the app on Play without it.
 
 ## Google Play checklist
 
+The full step-by-step guide is in **[PLAY_STORE.md](PLAY_STORE.md)**.
+
 The app is built to pass review with the least friction:
 
 - **Target SDK 36**, which Play currently requires for new apps.
@@ -69,20 +72,22 @@ The app is built to pass review with the least friction:
 - **Store listing text** is in [`fastlane/metadata`](fastlane/metadata/android/en-US). F-Droid
   reads the same folder.
 
-## Keeping it free and still earning something
+## Revenue: optional supporter tips
 
-Earning options that fit an open-source app and keep it Play-policy-safe:
+FloatNote stays 100% free and ad-free. Revenue comes from **optional one-time tips**:
 
-1. **GitHub Sponsors / Ko-fi / Buy Me a Coffee** linked from this README, the GitHub repo,
-   and F-Droid. Do *not* put external payment links inside the Play build. Play's payments
-   policy requires Play Billing for in-app purchases of digital goods or tips.
-2. **Optional "Supporter" tip in Play Billing** (a one-time purchase that unlocks nothing, or
-   only cosmetic bubble colours). Everything stays free, and Google takes 15%.
-3. **F-Droid + Liberapay/Open Collective**. F-Droid users support privacy-first apps and allow
-   donation links in the listing.
+- **Play build** (`play` flavour): a Support screen (♥ in the toolbar) sells three one-time
+  in-app products through **Google Play Billing**: `supporter_coffee`,
+  `supporter_lunch` and `supporter_hero`. Any tip unlocks extra bubble colours as a thank-you,
+  and it restores automatically on reinstall. This is the Play-approved way to take money in
+  an app. Purchases are acknowledged, and refunds revoke the perk.
+- **FOSS build** (`foss` flavour, for F-Droid and GitHub): no Google code, every colour is free,
+  and a Donate button links to GitHub Sponsors. Change `DONATE_URL` in `app/build.gradle.kts`
+  to your Ko-fi/Liberapay page if you prefer.
 
-Avoid ad SDKs. They would add the INTERNET permission and trackers, and they would break the
-app's main selling point: nothing leaves your device.
+No ad SDKs, and the INTERNET permission is stripped from the manifest, so "nothing leaves your
+device" stays true. Create the products in Play Console as described in
+[PLAY_STORE.md](PLAY_STORE.md).
 
 ## Project layout
 
@@ -90,7 +95,8 @@ app's main selling point: nothing leaves your device.
 app/src/main/java/io/github/sachin102492/floatnote/
 ├── data/          Note model + atomic JSON NoteRepository
 ├── overlay/       FloatingService, OverlayController (bubble physics, panel), QS tile
-├── ui/            MainActivity (notes list, bubble switch), EditorActivity
+├── support/       Perks (bubble colours) + SupportBackend (Play Billing / donations per flavour)
+├── ui/            MainActivity (notes list, bubble switch), EditorActivity, SupportActivity
 └── util/          AutoSaver (debounced autosave), insets helper
 ```
 

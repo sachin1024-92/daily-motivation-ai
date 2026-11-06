@@ -50,6 +50,7 @@ class FloatingService : Service() {
                 return START_NOT_STICKY
             }
             ACTION_EXPAND -> overlay?.expand()
+            ACTION_REFRESH_STYLE -> overlay?.applyStyle()
         }
         return START_STICKY
     }
@@ -124,6 +125,7 @@ class FloatingService : Service() {
     companion object {
         const val ACTION_EXPAND = "io.github.sachin102492.floatnote.action.EXPAND"
         const val ACTION_STOP = "io.github.sachin102492.floatnote.action.STOP"
+        private const val ACTION_REFRESH_STYLE = "io.github.sachin102492.floatnote.action.REFRESH_STYLE"
         private const val CHANNEL_ID = "bubble"
         private const val NOTIFICATION_ID = 1
         private const val TAG = "FloatingService"
@@ -137,6 +139,14 @@ class FloatingService : Service() {
             val intent = Intent(context, FloatingService::class.java)
             if (expand) intent.action = ACTION_EXPAND
             ContextCompat.startForegroundService(context, intent)
+        }
+
+        /** Re-applies the bubble colour if the bubble is on screen. */
+        fun refreshStyle(context: Context) {
+            if (!running) return
+            context.startService(
+                Intent(context, FloatingService::class.java).setAction(ACTION_REFRESH_STYLE),
+            )
         }
 
         fun stop(context: Context) {
