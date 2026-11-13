@@ -26,6 +26,7 @@ class _AIChatScreenState extends State<AIChatScreen> {
 
     final response = await _grokService.getMotivationResponse(text);
 
+    if (!mounted) return;
     setState(() {
       _messages.add({'role': 'assistant', 'text': response});
       _isLoading = false;
@@ -33,14 +34,22 @@ class _AIChatScreenState extends State<AIChatScreen> {
   }
 
   @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Chat with Grok'),
-        actions: const [
+        title: const Text('Motivation Chat'),
+        actions: [
           Padding(
-            padding: EdgeInsets.only(right: 16),
-            child: Chip(label: Text('Grok-powered')),
+            padding: const EdgeInsets.only(right: 16),
+            child: Chip(
+              label: Text(GrokService.isLive ? 'Grok-powered' : 'Offline mode'),
+            ),
           ),
         ],
       ),

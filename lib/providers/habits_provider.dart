@@ -17,13 +17,17 @@ class HabitsNotifier extends StateNotifier<List<Habit>> {
     final habitsJson = prefs.getString('habits');
     if (habitsJson != null) {
       final List decoded = jsonDecode(habitsJson);
-      state = decoded.map((e) => Habit.fromJson(e)).toList();
+      final today = DateTime.now();
+      state = decoded
+          .map((e) => rolloverHabit(Habit.fromJson(e), today))
+          .toList();
+      await _saveHabits();
     } else {
       // Default habits
       state = [
-        const Habit(id: '1', title: 'Morning meditation', description: '10 minutes mindfulness', streak: 5),
-        const Habit(id: '2', title: 'Read 20 pages', description: 'Non-fiction or self-improvement', streak: 12),
-        const Habit(id: '3', title: 'Exercise / walk', description: 'Move your body daily', streak: 3),
+        const Habit(id: '1', title: 'Morning meditation', description: '10 minutes mindfulness'),
+        const Habit(id: '2', title: 'Read 20 pages', description: 'Non-fiction or self-improvement'),
+        const Habit(id: '3', title: 'Exercise / walk', description: 'Move your body daily'),
       ];
       await _saveHabits();
     }
@@ -36,16 +40,16 @@ class HabitsNotifier extends StateNotifier<List<Habit>> {
   }
 
   Future<void> toggleHabit(String id) async {
-    state = state.map((habit) {
-      if (habit.id == id) {
-        final newCompleted = !habit.completedToday;
-        return habit.copyWith(
-          completedToday: newCompleted,
-          streak: newCompleted ? habit.streak + 1 : (habit.streak > 0 ? habit.streak - 1 : 0),
-        );
-      }
-      return habit;
-    }).toList();
+    final today = DateTime.now();
+    state = [
+      for (final habit in state)
+        if (habit.id == id) toggleHabitFor(habit, today) else habit,
+    ];
+    await _saveHabits();
+  }
+
+  Future<void> removeHabit(String id) async {
+    state = state.where((habit) => habit.id != id).toList();
     await _saveHabits();
   }
 

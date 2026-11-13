@@ -16,7 +16,17 @@ class HabitsScreen extends ConsumerWidget {
         itemCount: habits.length,
         itemBuilder: (context, index) {
           final habit = habits[index];
-          return Card(
+          return Dismissible(
+            key: ValueKey(habit.id),
+            direction: DismissDirection.endToStart,
+            background: Container(
+              alignment: Alignment.centerRight,
+              padding: const EdgeInsets.only(right: 24),
+              color: Colors.red.shade400,
+              child: const Icon(Icons.delete, color: Colors.white),
+            ),
+            onDismissed: (_) => habitsNotifier.removeHabit(habit.id),
+            child: Card(
             margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
             child: ListTile(
               leading: Checkbox(
@@ -29,6 +39,7 @@ class HabitsScreen extends ConsumerWidget {
                 label: Text('${habit.streak} 🔥'),
                 backgroundColor: habit.streak > 0 ? Colors.orange.shade100 : null,
               ),
+            ),
             ),
           );
         },
@@ -65,8 +76,8 @@ class HabitsScreen extends ConsumerWidget {
           TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
           ElevatedButton(
             onPressed: () {
-              if (titleController.text.isNotEmpty) {
-                notifier.addHabit(titleController.text, descController.text);
+              if (titleController.text.trim().isNotEmpty) {
+                notifier.addHabit(titleController.text.trim(), descController.text.trim());
                 Navigator.pop(context);
               }
             },
