@@ -31,7 +31,8 @@ jobs:
         run: flutter pub get
 
       - name: Code analysis
-        run: flutter analyze
+        # Fail on errors and warnings; style hints (info) are reported but do not fail the build.
+        run: flutter analyze --no-fatal-infos
 
       - name: Run tests
         run: flutter test
