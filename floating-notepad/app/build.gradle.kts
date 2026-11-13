@@ -5,6 +5,13 @@ plugins {
     id("org.jetbrains.kotlin.android")
 }
 
+// AdMob IDs are read from the environment. Without them the build uses Google's published
+// test IDs, which show test ads only and can never earn or cause invalid-traffic strikes.
+val admobAppId: String = System.getenv("ADMOB_APP_ID")?.takeIf { it.isNotBlank() }
+    ?: "ca-app-pub-3940256099942544~3347511713"
+val admobBannerId: String = System.getenv("ADMOB_BANNER_ID")?.takeIf { it.isNotBlank() }
+    ?: "ca-app-pub-3940256099942544/9214589741"
+
 // Release signing is read from the environment so no secrets live in the repo.
 // Without it, release builds fall back to the debug key so the APK is still installable.
 val releaseKeystore: String? = System.getenv("FLOATNOTE_KEYSTORE_FILE")
@@ -17,22 +24,26 @@ android {
         applicationId = "io.github.sachin102492.floatnote"
         minSdk = 26
         targetSdk = 36
-        versionCode = 2
-        versionName = "1.1.0"
+        versionCode = 3
+        versionName = "1.2.0"
     }
 
     buildFeatures {
         buildConfig = true
     }
 
-    // "play" sells optional supporter tips through Google Play Billing.
-    // "foss" has no Google code (for F-Droid): every perk is free and it links to donations.
+    // "play" shows one banner ad on the notes list and sells optional supporter tips through
+    // Google Play Billing; a tip removes the ad.
+    // "foss" has no Google code, no ads and no Internet permission (for F-Droid): every perk
+    // is free and it links to donations.
     flavorDimensions += "store"
     productFlavors {
         create("play") {
             dimension = "store"
             buildConfigField("boolean", "PERKS_FREE", "false")
             buildConfigField("String", "DONATE_URL", "\"\"")
+            buildConfigField("String", "ADMOB_BANNER_ID", "\"$admobBannerId\"")
+            manifestPlaceholders["admobAppId"] = admobAppId
         }
         create("foss") {
             dimension = "store"
@@ -99,4 +110,6 @@ dependencies {
     implementation("androidx.dynamicanimation:dynamicanimation:1.0.0")
     implementation("com.google.android.material:material:1.12.0")
     "playImplementation"("com.android.billingclient:billing-ktx:8.0.0")
+    "playImplementation"("com.google.android.gms:play-services-ads:23.6.0")
+    "playImplementation"("com.google.android.ump:user-messaging-platform:3.1.0")
 }

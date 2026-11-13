@@ -1,7 +1,7 @@
 # Publishing FloatNote on Google Play
 
 Everything that can be automated is done: the signed App Bundle, store text, icon,
-feature graphic, privacy policy, in-app supporter tips, and an upload step in CI.
+feature graphic, privacy policy, a banner ad, in-app supporter tips, and an upload step in CI.
 The steps below need **you**, signed in to Google as the account owner, because Google
 requires the owner to verify their identity and accept its agreements.
 
@@ -50,13 +50,16 @@ Store `floatnote-upload.jks` and the password in a password manager.
 3. **App content** (Policy → App content):
    - **Privacy policy URL**: publish `PRIVACY.md` (e.g. enable GitHub Pages, or use the
      file's GitHub URL) and paste the link.
-   - **Ads**: No ads.
+   - **Ads**: **Yes, contains ads** (one banner on the notes list).
    - **App access**: All functionality is available without special access.
    - **Content rating**: complete the questionnaire (Utility/Productivity, no
      objectionable content) → Everyone.
    - **Target audience**: 13+ (avoid "children" to keep the Families policy out of scope).
-   - **Data safety**: no data collected or shared. Payments are processed by Google Play;
-     FloatNote never receives payment details.
+   - **Data safety**: the app contains the Google Mobile Ads SDK. Declare what Google lists
+     for that SDK (<https://developers.google.com/admob/android/privacy/play-data-disclosure>):
+     approximate location, app interactions, diagnostics and device or other IDs, collected
+     and shared for advertising and analytics. Notes are **not** collected. Payments are
+     processed by Google Play; FloatNote never receives payment details.
    - **Foreground service permissions**: declare **Special use**, describe it as
      "Keeps the user-enabled floating notepad bubble visible over other apps", and
      attach a short screen recording of turning the bubble on and using it.
@@ -71,7 +74,26 @@ Store `floatnote-upload.jks` and the password in a password manager.
 5. Add 12+ testers (a Google Group or email list) and keep the test running for 14 days.
    Then apply for **Production** access from the Dashboard.
 
-## 5. Create the supporter tips (revenue)
+## 5. Turn on real ads (revenue)
+
+The app is built with Google's **test** ad IDs, so it shows test ads and earns nothing
+until you add your own. Never tap real ads in your own app: AdMob bans accounts for it.
+
+1. Sign up at <https://admob.google.com> with the same Google account and accept its terms.
+   Add your payment details there (payouts start once you pass the USD 100 threshold).
+2. **Apps → Add app** → Android. Until the app is live on Play, choose "not listed yet".
+   Copy the **App ID** (looks like `ca-app-pub-1234567890123456~1234567890`).
+3. **Ad units → Add ad unit → Banner**. Copy the **Ad unit ID** (`ca-app-pub-…/…`).
+4. Add both as GitHub repository secrets named `ADMOB_APP_ID` and `ADMOB_BANNER_ID`, then
+   re-run the **FloatNote Android** workflow. Builds from then on carry your real IDs.
+5. In AdMob → **Privacy & messaging**, create the **European regulations** consent message.
+   The app already asks for consent before loading ads; it needs this message to show.
+6. After the app is live, link it to its Play listing in AdMob so ads serve fully.
+
+Be realistic: one banner earns a fraction of a rupee per view. Income only becomes
+meaningful with thousands of daily users, so the supporter tips below matter more early on.
+
+## 6. Create the supporter tips (revenue)
 
 Monetize → Products → **In-app products** → create three **one-time** products with
 exactly these IDs (the app looks them up by ID):
@@ -82,13 +104,13 @@ exactly these IDs (the app looks them up by ID):
 | `supporter_lunch` | Buy me lunch 🍱 | $4.99 / ₹249 |
 | `supporter_hero` | FloatNote hero 🦸 | $9.99 / ₹499 |
 
-Activate each. Any tip unlocks the extra bubble colours, and it restores automatically on
+Activate each. Any tip removes the ad and unlocks the extra bubble colours, and it restores automatically on
 a reinstall or new phone. Google keeps 15% (on your first $1M/year).
 
 To test purchases without being charged: Settings → **License testing** → add your
 tester emails, then buy from a build installed via the testing track.
 
-## 6. Later releases: fully automatic
+## 7. Later releases: fully automatic
 
 1. In Google Cloud, create a service account, enable the **Google Play Android Developer
    API**, and create a JSON key.

@@ -49,6 +49,9 @@ jobs:
           FLOATNOTE_KEYSTORE_PASSWORD: ${{ secrets.FLOATNOTE_KEYSTORE_PASSWORD }}
           FLOATNOTE_KEY_ALIAS: ${{ secrets.FLOATNOTE_KEY_ALIAS }}
           FLOATNOTE_KEY_PASSWORD: ${{ secrets.FLOATNOTE_KEY_PASSWORD }}
+          # Optional. Without these the build uses Google's test ad IDs.
+          ADMOB_APP_ID: ${{ secrets.ADMOB_APP_ID }}
+          ADMOB_BANNER_ID: ${{ secrets.ADMOB_BANNER_ID }}
         run: ./gradlew --no-daemon assemblePlayDebug assemblePlayRelease bundlePlayRelease assembleFossRelease lintPlayDebug
 
       - name: Collect outputs
