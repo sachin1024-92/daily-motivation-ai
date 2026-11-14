@@ -8,12 +8,18 @@ on:
 
 jobs:
   build-and-test:
-    name: Build & Test
+    name: Analyze, test, build APK
     runs-on: ubuntu-latest
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
 
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
@@ -21,37 +27,28 @@ jobs:
           channel: 'stable'
           cache: true
 
-      - name: Flutter Info
-        run: flutter --version
-
       - name: Install dependencies
         run: flutter pub get
 
       - name: Code analysis
-        run: flutter analyze
+        # Fail on errors and warnings; style hints (info) are reported but do not fail the build.
+        run: flutter analyze --no-fatal-infos
 
       - name: Run tests
-        run: |
-          if [ -d "test" ]; then
-            flutter test
-          else
-            echo "⚠️ No test/ directory found — skipping tests (recommended: add at least one widget test)"
-          fi
+        run: flutter test
+
+      # The repo holds only the Dart source. Until the android/ folder is
+      # committed, generate it here so every run still produces an installable APK.
+      - name: Generate Android project if missing
+        if: hashFiles('android/app/build.gradle', 'android/app/build.gradle.kts') == ''
+        run: flutter create . --platforms=android --org com.sachinmajhee --project-name daily_motivation_ai
 
       - name: Build release APK
-        if: hashFiles('android/app/build.gradle') != '' || hashFiles('android/app/build.gradle.kts') != ''
-        run: flutter build apk --release
+        run: flutter build apk --release --dart-define=GROK_API_KEY=${{ secrets.GROK_API_KEY }}
 
-      - name: Build release App Bundle (AAB)
-        if: hashFiles('android/app/build.gradle') != '' || hashFiles('android/app/build.gradle.kts') != ''
-        run: flutter build appbundle --release
-
-      - name: Upload build artifacts
-        if: hashFiles('android/app/build.gradle') != '' || hashFiles('android/app/build.gradle.kts') != ''
+      - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: flutter-builds-${{ github.run_number }}
-          path: |
-            build/app/outputs/flutter-apk/app-release.apk
-            build/app/outputs/bundle/release/app-release.aab
+          name: daily-motivation-ai-apk-${{ github.run_number }}
+          path: build/app/outputs/flutter-apk/app-release.apk
           retention-days: 30

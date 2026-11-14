@@ -2,12 +2,19 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 
 class GrokService {
-  // TODO: Replace with your actual Grok/xAI API key
-  static const String _apiKey = 'YOUR_GROK_API_KEY_HERE';
+  // Supplied at build time, never committed:
+  //   flutter run --dart-define=GROK_API_KEY=xai-...
+  // Without a key the app answers from built-in offline responses.
+  static const String _apiKey = String.fromEnvironment('GROK_API_KEY');
+  static const String _model =
+      String.fromEnvironment('GROK_MODEL', defaultValue: 'grok-2-latest');
   static const String _baseUrl = 'https://api.x.ai/v1/chat/completions';
 
+  /// True when a real API key was provided at build time.
+  static bool get isLive => _apiKey.isNotEmpty;
+
   Future<String> getMotivationResponse(String prompt) async {
-    if (_apiKey == 'YOUR_GROK_API_KEY_HERE') {
+    if (!isLive) {
       return _getSimulatedResponse(prompt);
     }
 
@@ -19,7 +26,7 @@ class GrokService {
           'Authorization': 'Bearer $_apiKey',
         },
         body: jsonEncode({
-          'model': 'grok-2-latest', // or latest available
+          'model': _model,
           'messages': [
             {'role': 'system', 'content': 'You are a supportive, concise daily motivation coach. Keep responses encouraging, actionable, and under 150 words.'},
             {'role': 'user', 'content': prompt}
@@ -27,7 +34,7 @@ class GrokService {
           'max_tokens': 200,
           'temperature': 0.7,
         }),
-      );
+      ).timeout(const Duration(seconds: 20));
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);

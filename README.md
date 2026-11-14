@@ -4,13 +4,14 @@
 
 Built with Flutter. Designed for real daily use and future Play Store monetization.
 
-## Current Status (August 2026)
+## Current Status (November 2026)
 
 - Core MVP complete (quotes, habits, focus timer, AI chat structure)
 - Offline-first architecture ready
 - Prepared for real Grok / xAI API integration
-- **CI is now green** (analyze + tests pass)
-- Next priority: add platform folders → enable APK/AAB builds → Firebase + Play Store
+- CI runs analysis and tests, and builds a test APK on every push
+- Habit streaks follow the calendar: one tick per day, reset after a missed day
+- Next priority: Play Store release (see docs/PLAY_STORE.md)
 
 ## 🗒️ Also in this repo: FloatNote
 
@@ -43,27 +44,23 @@ flutter pub get
 flutter run
 ```
 
-### Enable full CI builds (APK + AAB)
+### Get an installable APK
 
-The repository currently contains only the Dart source (`lib/`).  
-To make the GitHub Actions workflow also build release APK and App Bundle, run this **once** on your local machine (where you already have the full project):
+Every push and pull request builds a release APK in GitHub Actions. Open the run under the **Actions** tab and download the `daily-motivation-ai-apk-…` artifact to install it on a phone.
 
-```bash
-cd daily-motivation-ai
-flutter create . --platforms=android,ios,web
-# Review the generated folders, then:
-git add android ios web .metadata analysis_options.yaml pubspec.lock
-git commit -m "Add platform folders so CI can build APK/AAB"
-git push
-```
-
-After that, every push to `main` will produce downloadable APK and AAB artifacts.
+That APK is signed with a debug key, which is fine for testing but **not accepted by the Play Store**. See [docs/PLAY_STORE.md](docs/PLAY_STORE.md) for what is still needed before publishing.
 
 ## Configuration
 
-1. Get a Grok API key from xAI
-2. Add it to the Grok service file
-3. (Optional) Connect Firebase for cloud sync and user accounts
+The AI chat works offline with built-in responses. To use live Grok responses, pass a key at build time (it is never stored in the repo):
+
+```bash
+flutter run --dart-define=GROK_API_KEY=xai-your-key
+```
+
+For CI builds, add the key as a repository secret named `GROK_API_KEY`.
+
+A key compiled into an app can be extracted from the APK. Before a public release, route chat requests through a small server of your own that holds the key.
 
 ## Roadmap
 
