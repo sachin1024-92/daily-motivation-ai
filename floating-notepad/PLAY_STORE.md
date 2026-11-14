@@ -74,21 +74,26 @@ Store `floatnote-upload.jks` and the password in a password manager.
 5. Add 12+ testers (a Google Group or email list) and keep the test running for 14 days.
    Then apply for **Production** access from the Dashboard.
 
-## 5. Turn on real ads (revenue)
+## 5. Ads (revenue)
 
-The app is built with Google's **test** ad IDs, so it shows test ads and earns nothing
-until you add your own. Never tap real ads in your own app: AdMob bans accounts for it.
+Set up on 14 Nov 2026 in the AdMob account that belongs to the Play developer account:
 
-1. Sign up at <https://admob.google.com> with the same Google account and accept its terms.
-   Add your payment details there (payouts start once you pass the USD 100 threshold).
-2. **Apps → Add app** → Android. Until the app is live on Play, choose "not listed yet".
-   Copy the **App ID** (looks like `ca-app-pub-1234567890123456~1234567890`).
-3. **Ad units → Add ad unit → Banner**. Copy the **Ad unit ID** (`ca-app-pub-…/…`).
-4. Add both as GitHub repository secrets named `ADMOB_APP_ID` and `ADMOB_BANNER_ID`, then
-   re-run the **FloatNote Android** workflow. Builds from then on carry your real IDs.
-5. In AdMob → **Privacy & messaging**, create the **European regulations** consent message.
+- App: **FloatNote** (Android), app ID `ca-app-pub-7040144214936380~9265551190`
+- Ad unit: **Notes list banner**, ID `ca-app-pub-7040144214936380/2339236109`
+
+Both are built into **release** builds. **Debug** builds always use Google's test IDs, so
+install `FloatNote-debug.apk` for your own testing and never tap real ads in the release
+build: AdMob bans accounts for that.
+
+Still to do:
+
+1. AdMob is re-verifying the account after reactivation (usually 24 hours, up to two weeks).
+   Ads do not serve until that finishes.
+2. In AdMob → **Privacy & messaging**, create the **European regulations** consent message.
    The app already asks for consent before loading ads; it needs this message to show.
-6. After the app is live, link it to its Play listing in AdMob so ads serve fully.
+3. Add payment details in AdMob (payouts start once you pass the USD 100 threshold).
+4. After the app is live on Play, open the app in AdMob → **App settings** and link it to
+   its store listing. Ad serving stays limited until Google has reviewed the listed app.
 
 Be realistic: one banner earns a fraction of a rupee per view. Income only becomes
 meaningful with thousands of daily users, so the supporter tips below matter more early on.

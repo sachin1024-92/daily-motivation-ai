@@ -5,12 +5,16 @@ plugins {
     id("org.jetbrains.kotlin.android")
 }
 
-// AdMob IDs are read from the environment. Without them the build uses Google's published
-// test IDs, which show test ads only and can never earn or cause invalid-traffic strikes.
+// AdMob IDs. These are public identifiers (they ship inside every APK), not secrets.
+// Release builds carry the real IDs and earn; the environment can override them.
+// Debug builds always use Google's published test IDs, so testing on your own phone shows
+// test ads only and can never cause an invalid-traffic strike on the AdMob account.
 val admobAppId: String = System.getenv("ADMOB_APP_ID")?.takeIf { it.isNotBlank() }
-    ?: "ca-app-pub-3940256099942544~3347511713"
+    ?: "ca-app-pub-7040144214936380~9265551190"
 val admobBannerId: String = System.getenv("ADMOB_BANNER_ID")?.takeIf { it.isNotBlank() }
-    ?: "ca-app-pub-3940256099942544/9214589741"
+    ?: "ca-app-pub-7040144214936380/2339236109"
+val admobTestAppId = "ca-app-pub-3940256099942544~3347511713"
+val admobTestBannerId = "ca-app-pub-3940256099942544/9214589741"
 
 // Release signing is read from the environment so no secrets live in the repo.
 // Without it, release builds fall back to the debug key so the APK is still installable.
@@ -42,8 +46,6 @@ android {
             dimension = "store"
             buildConfigField("boolean", "PERKS_FREE", "false")
             buildConfigField("String", "DONATE_URL", "\"\"")
-            buildConfigField("String", "ADMOB_BANNER_ID", "\"$admobBannerId\"")
-            manifestPlaceholders["admobAppId"] = admobAppId
         }
         create("foss") {
             dimension = "store"
@@ -73,9 +75,13 @@ android {
                 "proguard-rules.pro",
             )
             signingConfig = signingConfigs.findByName("release") ?: signingConfigs.getByName("debug")
+            buildConfigField("String", "ADMOB_BANNER_ID", "\"$admobBannerId\"")
+            manifestPlaceholders["admobAppId"] = admobAppId
         }
         debug {
             applicationIdSuffix = ".debug"
+            buildConfigField("String", "ADMOB_BANNER_ID", "\"$admobTestBannerId\"")
+            manifestPlaceholders["admobAppId"] = admobTestAppId
         }
     }
 
