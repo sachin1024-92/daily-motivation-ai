@@ -25,6 +25,9 @@ import io.github.sachin102492.floatnote.ads.Ads
 import io.github.sachin102492.floatnote.data.NoteRepository
 import io.github.sachin102492.floatnote.notes
 import io.github.sachin102492.floatnote.overlay.FloatingService
+import io.github.sachin102492.floatnote.support.SupportBackend
+import io.github.sachin102492.floatnote.support.SupportBackends
+import io.github.sachin102492.floatnote.support.SupportTier
 import io.github.sachin102492.floatnote.util.padForSystemBars
 
 class MainActivity : AppCompatActivity(), NoteRepository.Listener {
@@ -36,6 +39,8 @@ class MainActivity : AppCompatActivity(), NoteRepository.Listener {
     private lateinit var fab: ExtendedFloatingActionButton
     private val adapter = NotesAdapter { openEditor(it.id) }
     private lateinit var ads: Ads
+    private lateinit var support: SupportBackend
+    private var resumed = false
 
     private var awaitingOverlayPermission = false
     private var askedForNotifications = false
@@ -89,6 +94,17 @@ class MainActivity : AppCompatActivity(), NoteRepository.Listener {
 
         ads = Ads(this, findViewById(R.id.ad_container))
 
+        // Check with the store whether this person is already a supporter (for example after
+        // a reinstall or on a new phone), so they are not shown an ad they paid to remove.
+        support = SupportBackends.create(this)
+        support.start(object : SupportBackend.Listener {
+            override fun onTiers(tiers: List<SupportTier>) = Unit
+            override fun onSupporterChanged(isSupporter: Boolean) {
+                if (resumed) ads.resume()
+            }
+            override fun onMessage(message: Int) = Unit
+        })
+
         handleIntent(intent)
     }
 
@@ -101,6 +117,7 @@ class MainActivity : AppCompatActivity(), NoteRepository.Listener {
         super.onResume()
         notes.addListener(this)
         refreshNotes()
+        resumed = true
         ads.resume()
         if (awaitingOverlayPermission && Settings.canDrawOverlays(this)) {
             awaitingOverlayPermission = false
@@ -111,12 +128,14 @@ class MainActivity : AppCompatActivity(), NoteRepository.Listener {
     }
 
     override fun onPause() {
+        resumed = false
         ads.pause()
         notes.removeListener(this)
         super.onPause()
     }
 
     override fun onDestroy() {
+        support.end()
         ads.destroy()
         super.onDestroy()
     }

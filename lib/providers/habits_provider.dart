@@ -15,12 +15,22 @@ class HabitsNotifier extends StateNotifier<List<Habit>> {
   Future<void> _loadHabits() async {
     final prefs = await SharedPreferences.getInstance();
     final habitsJson = prefs.getString('habits');
+    List<Habit>? saved;
     if (habitsJson != null) {
-      final List decoded = jsonDecode(habitsJson);
-      final today = DateTime.now();
-      state = decoded
-          .map((e) => rolloverHabit(Habit.fromJson(e), today))
-          .toList();
+      // Saved data that cannot be read must not crash the app on every launch.
+      try {
+        final List decoded = jsonDecode(habitsJson);
+        final today = DateTime.now();
+        saved = decoded
+            .map((e) => rolloverHabit(
+                Habit.fromJson(Map<String, dynamic>.from(e as Map)), today))
+            .toList();
+      } catch (_) {
+        saved = null;
+      }
+    }
+    if (saved != null) {
+      state = saved;
       await _saveHabits();
     } else {
       // Default habits
