@@ -44,7 +44,9 @@ jobs:
         run: flutter create . --platforms=android --org com.sachinmajhee --project-name daily_motivation_ai
 
       - name: Build release APK
-        run: flutter build apk --release --dart-define=GROK_API_KEY=${{ secrets.GROK_API_KEY }}
+        # No API key is ever built into the APK: anything compiled into an app can be
+        # extracted by whoever downloads it. The app runs in offline mode.
+        run: flutter build apk --release
 
       - name: Upload APK
         uses: actions/upload-artifact@v4

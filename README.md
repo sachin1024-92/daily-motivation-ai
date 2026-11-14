@@ -58,7 +58,7 @@ The AI chat works offline with built-in responses. To use live Grok responses, p
 flutter run --dart-define=GROK_API_KEY=xai-your-key
 ```
 
-For CI builds, add the key as a repository secret named `GROK_API_KEY`.
+CI builds never include a key; the APKs it produces run in offline mode.
 
 A key compiled into an app can be extracted from the APK. Before a public release, route chat requests through a small server of your own that holds the key.
 
