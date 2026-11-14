@@ -8,10 +8,6 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
-    <!-- No Internet access, ever: notes never leave the device. Strip it even if a library asks. -->
-    <uses-permission
-        android:name="android.permission.INTERNET"
-        tools:node="remove" />
 
     <application
         android:name=".FloatNoteApp"

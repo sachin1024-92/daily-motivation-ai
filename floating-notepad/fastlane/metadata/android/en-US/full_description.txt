@@ -16,9 +16,9 @@ FloatNote puts a notepad bubble on top of every app. Tap it, type, and tap away.
 • Notification shortcut to open your note
 
 <b>Private by design</b>
-• No Internet permission. Your notes never leave your device
-• No ads, no analytics, no trackers, no account
+• Your notes never leave your device, and there is no account
+• One small banner ad on the notes list, never in the bubble or while you type
 • Free and open source (MIT)
 
 <b>Support the project (optional)</b>
-• Every feature is free. If you like FloatNote, leave a one-time tip and unlock extra bubble colours as a thank-you
+• Every feature is free. Leave a one-time tip of any size to remove the ad for good and unlock extra bubble colours

@@ -21,6 +21,7 @@ import com.google.android.material.floatingactionbutton.ExtendedFloatingActionBu
 import com.google.android.material.materialswitch.MaterialSwitch
 import com.google.android.material.snackbar.Snackbar
 import io.github.sachin102492.floatnote.R
+import io.github.sachin102492.floatnote.ads.Ads
 import io.github.sachin102492.floatnote.data.NoteRepository
 import io.github.sachin102492.floatnote.notes
 import io.github.sachin102492.floatnote.overlay.FloatingService
@@ -34,6 +35,7 @@ class MainActivity : AppCompatActivity(), NoteRepository.Listener {
     private lateinit var emptyView: View
     private lateinit var fab: ExtendedFloatingActionButton
     private val adapter = NotesAdapter { openEditor(it.id) }
+    private lateinit var ads: Ads
 
     private var awaitingOverlayPermission = false
     private var askedForNotifications = false
@@ -85,6 +87,8 @@ class MainActivity : AppCompatActivity(), NoteRepository.Listener {
             }
         }
 
+        ads = Ads(this, findViewById(R.id.ad_container))
+
         handleIntent(intent)
     }
 
@@ -97,6 +101,7 @@ class MainActivity : AppCompatActivity(), NoteRepository.Listener {
         super.onResume()
         notes.addListener(this)
         refreshNotes()
+        ads.resume()
         if (awaitingOverlayPermission && Settings.canDrawOverlays(this)) {
             awaitingOverlayPermission = false
             requestBubble()
@@ -106,8 +111,14 @@ class MainActivity : AppCompatActivity(), NoteRepository.Listener {
     }
 
     override fun onPause() {
+        ads.pause()
         notes.removeListener(this)
         super.onPause()
+    }
+
+    override fun onDestroy() {
+        ads.destroy()
+        super.onDestroy()
     }
 
     override fun onNotesChanged() = refreshNotes()

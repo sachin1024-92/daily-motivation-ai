@@ -78,6 +78,15 @@
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
 
+        <!-- Banner ad slot (Play build only). Kept away from the list and the FAB so it
+             cannot be tapped by accident; hidden for supporters and in the FOSS build. -->
+        <FrameLayout
+            android:id="@+id/ad_container"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:visibility="gone" />
+
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"

@@ -1,7 +1,7 @@
 # FloatNote: floating notepad for Android
 
 A free, open-source notepad bubble that floats over any app and **autosaves on every keystroke**.
-It has no ads, no trackers, and no Internet permission.
+Your notes never leave your device. The Google Play build shows one small banner ad on the notes list, which any supporter tip removes; the FOSS build has no ads and no Internet permission.
 
 ## Features
 
@@ -67,7 +67,7 @@ The app is built to pass review with the least friction:
 - **Foreground service (`specialUse`)**: in Play Console → *App content → Foreground service
   permissions*, declare **Special use** and describe it as "Keeps the user-enabled floating
   notepad bubble on screen." Include a short video of the bubble in use.
-- **Data safety**: *No data collected, no data shared.* There is no INTERNET permission.
+- **Data safety**: the Play build contains the Google Mobile Ads SDK, so declare the data it collects (see [PLAY_STORE.md](PLAY_STORE.md)). Notes are not collected.
 - **Privacy policy**: host [`PRIVACY.md`](PRIVACY.md), for example with GitHub Pages, and link it.
 - **Store listing text** is in [`fastlane/metadata`](fastlane/metadata/android/en-US). F-Droid
   reads the same folder.
@@ -85,8 +85,9 @@ FloatNote stays 100% free and ad-free. Revenue comes from **optional one-time ti
   and a Donate button links to GitHub Sponsors. Change `DONATE_URL` in `app/build.gradle.kts`
   to your Ko-fi/Liberapay page if you prefer.
 
-No ad SDKs, and the INTERNET permission is stripped from the manifest, so "nothing leaves your
-device" stays true. Create the products in Play Console as described in
+The FOSS build has no ad SDK and its INTERNET permission is stripped from the manifest. The Play
+build shows one banner ad on the notes list (never in the bubble or the editor) and removes it
+for supporters; see `app/src/play/.../ads/Ads.kt`. Create the products in Play Console as described in
 [PLAY_STORE.md](PLAY_STORE.md).
 
 ## Project layout
