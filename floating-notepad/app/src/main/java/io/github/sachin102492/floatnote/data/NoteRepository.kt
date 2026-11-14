@@ -26,7 +26,8 @@ class NoteRepository(context: Context) {
         fun onNotesChanged()
     }
 
-    private val file = AtomicFile(File(context.filesDir, "notes.json"))
+    private val dir: File = context.filesDir
+    private val file = AtomicFile(File(dir, "notes.json"))
     private val prefs = context.getSharedPreferences("notes", Context.MODE_PRIVATE)
     private val io = Executors.newSingleThreadExecutor()
     private val notes = LinkedHashMap<Long, Note>()
@@ -121,22 +122,44 @@ class NoteRepository(context: Context) {
             Log.e(TAG, "Could not read notes", e)
             return
         }
+        var damaged = false
         try {
             val array = JSONObject(text).getJSONArray("notes")
             for (i in 0 until array.length()) {
-                val o = array.getJSONObject(i)
-                val note = Note(
-                    id = o.getLong("id"),
-                    title = o.optString("title"),
-                    body = o.optString("body"),
-                    createdAt = o.optLong("createdAt"),
-                    updatedAt = o.optLong("updatedAt"),
-                )
-                notes[note.id] = note
-                lastId = max(lastId, note.id)
+                // One unreadable entry must not take the readable ones down with it.
+                try {
+                    val o = array.getJSONObject(i)
+                    val note = Note(
+                        id = o.getLong("id"),
+                        title = o.optString("title"),
+                        body = o.optString("body"),
+                        createdAt = o.optLong("createdAt"),
+                        updatedAt = o.optLong("updatedAt"),
+                    )
+                    notes[note.id] = note
+                    lastId = max(lastId, note.id)
+                } catch (e: JSONException) {
+                    damaged = true
+                    Log.e(TAG, "Skipping an unreadable note", e)
+                }
             }
         } catch (e: JSONException) {
+            damaged = true
             Log.e(TAG, "Notes file is corrupt", e)
+        }
+        if (damaged) keepCopyOfDamagedFile(text)
+    }
+
+    /**
+     * The next save overwrites notes.json with whatever could be read. Keep the damaged
+     * original next to it first, so nothing the user wrote is destroyed for good.
+     */
+    private fun keepCopyOfDamagedFile(text: String) {
+        try {
+            File(dir, "notes.damaged-${System.currentTimeMillis()}.json")
+                .writeText(text, Charsets.UTF_8)
+        } catch (e: IOException) {
+            Log.e(TAG, "Could not keep a copy of the damaged notes file", e)
         }
     }
 

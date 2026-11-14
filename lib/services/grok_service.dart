@@ -13,7 +13,13 @@ class GrokService {
   /// True when a real API key was provided at build time.
   static bool get isLive => _apiKey.isNotEmpty;
 
+  /// Longest message sent to the API; keeps one request's cost bounded.
+  static const int maxPromptLength = 1000;
+
   Future<String> getMotivationResponse(String prompt) async {
+    if (prompt.length > maxPromptLength) {
+      prompt = prompt.substring(0, maxPromptLength);
+    }
     if (!isLive) {
       return _getSimulatedResponse(prompt);
     }
@@ -38,7 +44,10 @@ class GrokService {
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        return data['choices'][0]['message']['content'] ?? 'Stay strong today!';
+        final content = data['choices'][0]['message']['content'];
+        return content is String && content.isNotEmpty
+            ? content
+            : 'Stay strong today!';
       } else {
         return 'Sorry, I could not reach Grok right now. Here\'s some motivation: You\'ve got this!';
       }
