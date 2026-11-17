@@ -13,6 +13,7 @@ import io.github.sachin102492.floatnote.data.Note
 
 class NotesAdapter(
     private val onClick: (Note) -> Unit,
+    private val onLongClick: (Note) -> Unit = {},
 ) : ListAdapter<Note, NotesAdapter.Holder>(Diff) {
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): Holder =
@@ -24,10 +25,12 @@ class NotesAdapter(
         private val title: TextView = view.findViewById(R.id.note_title)
         private val preview: TextView = view.findViewById(R.id.note_preview)
         private val time: TextView = view.findViewById(R.id.note_time)
+        private val pin: View = view.findViewById(R.id.note_pin)
         private var note: Note? = null
 
         init {
             view.setOnClickListener { note?.let(onClick) }
+            view.setOnLongClickListener { note?.let(onLongClick); note != null }
         }
 
         fun bind(note: Note) {
@@ -35,6 +38,7 @@ class NotesAdapter(
             title.text = note.displayTitle.ifEmpty { itemView.context.getString(R.string.untitled) }
             preview.text = note.preview
             preview.visibility = if (note.preview.isEmpty()) View.GONE else View.VISIBLE
+            pin.visibility = if (note.pinned) View.VISIBLE else View.GONE
             time.text = DateUtils.getRelativeTimeSpanString(
                 note.updatedAt,
                 System.currentTimeMillis(),

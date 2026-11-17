@@ -6,6 +6,8 @@ data class Note(
     val body: String,
     val createdAt: Long,
     val updatedAt: Long,
+    /** Pinned notes are listed above all others. */
+    val pinned: Boolean = false,
 ) {
     val isBlank: Boolean
         get() = title.isBlank() && body.isBlank()
@@ -23,6 +25,12 @@ data class Note(
             if (title.isNotBlank()) return text
             return text.substringAfter('\n', "").trim()
         }
+
+    /** True if [query] appears in the title or body, ignoring case. */
+    fun matches(query: String): Boolean {
+        val q = query.trim()
+        return q.isEmpty() || title.contains(q, ignoreCase = true) || body.contains(q, ignoreCase = true)
+    }
 
     fun asPlainText(): String =
         listOf(title.trim(), body.trim()).filter { it.isNotEmpty() }.joinToString("\n\n")

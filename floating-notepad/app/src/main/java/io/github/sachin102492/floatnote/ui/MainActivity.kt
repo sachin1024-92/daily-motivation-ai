@@ -12,6 +12,7 @@ import android.widget.TextView
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
+import androidx.appcompat.widget.SearchView
 import androidx.recyclerview.widget.ItemTouchHelper
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
@@ -37,7 +38,13 @@ class MainActivity : AppCompatActivity(), NoteRepository.Listener {
     private lateinit var bubbleStatus: TextView
     private lateinit var emptyView: View
     private lateinit var fab: ExtendedFloatingActionButton
-    private val adapter = NotesAdapter { openEditor(it.id) }
+    private val adapter = NotesAdapter(
+        onClick = { openEditor(it.id) },
+        onLongClick = { togglePin(it) },
+    )
+    private var query = ""
+    private lateinit var emptyTitle: TextView
+    private lateinit var emptyMessage: TextView
     private lateinit var ads: Ads
     private lateinit var support: SupportBackend
     private var resumed = false
@@ -58,6 +65,21 @@ class MainActivity : AppCompatActivity(), NoteRepository.Listener {
 
         findViewById<MaterialToolbar>(R.id.toolbar).apply {
             inflateMenu(R.menu.menu_main)
+            (menu.findItem(R.id.action_search).actionView as SearchView).apply {
+                queryHint = getString(R.string.search_hint)
+                setOnQueryTextListener(object : SearchView.OnQueryTextListener {
+                    override fun onQueryTextSubmit(text: String?): Boolean {
+                        clearFocus()
+                        return true
+                    }
+
+                    override fun onQueryTextChange(text: String?): Boolean {
+                        query = text.orEmpty()
+                        refreshNotes()
+                        return true
+                    }
+                })
+            }
             setOnMenuItemClickListener { item ->
                 if (item.itemId != R.id.action_support) return@setOnMenuItemClickListener false
                 startActivity(Intent(this@MainActivity, SupportActivity::class.java))
@@ -68,6 +90,8 @@ class MainActivity : AppCompatActivity(), NoteRepository.Listener {
         bubbleSwitch = findViewById(R.id.bubble_switch)
         bubbleStatus = findViewById(R.id.bubble_status)
         emptyView = findViewById(R.id.empty_view)
+        emptyTitle = findViewById(R.id.empty_title)
+        emptyMessage = findViewById(R.id.empty_message)
         fab = findViewById(R.id.fab_new)
 
         val list = findViewById<RecyclerView>(R.id.notes_list)
@@ -150,9 +174,20 @@ class MainActivity : AppCompatActivity(), NoteRepository.Listener {
     }
 
     private fun refreshNotes() {
-        val visible = notes.all.filterNot { it.isBlank }
+        val visible = notes.all.filter { !it.isBlank && it.matches(query) }
         adapter.submitList(visible)
         emptyView.visibility = if (visible.isEmpty()) View.VISIBLE else View.GONE
+        val searching = query.isNotBlank()
+        emptyTitle.setText(if (searching) R.string.search_empty_title else R.string.empty_title)
+        emptyMessage.setText(if (searching) R.string.search_empty_message else R.string.empty_message)
+    }
+
+    private fun togglePin(note: io.github.sachin102492.floatnote.data.Note) {
+        val pin = !note.pinned
+        notes.setPinned(note.id, pin)
+        Snackbar.make(root, if (pin) R.string.note_pinned else R.string.note_unpinned, Snackbar.LENGTH_SHORT)
+            .setAnchorView(fab)
+            .show()
     }
 
     private fun requestBubble() {
