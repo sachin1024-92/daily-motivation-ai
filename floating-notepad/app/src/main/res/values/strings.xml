@@ -12,6 +12,16 @@
     <string name="dismiss_description">Drop here to hide the bubble</string>
 
     <string name="your_notes">Your notes</string>
+    <string name="action_search">Search notes</string>
+    <string name="search_hint">Search your notes</string>
+    <string name="search_empty_title">No matching notes</string>
+    <string name="search_empty_message">Try a different word.</string>
+    <string name="pinned">Pinned</string>
+    <string name="note_pinned">Pinned to the top. Long-press again to unpin.</string>
+    <string name="note_unpinned">Unpinned</string>
+    <string name="capture_label">Save to FloatNote</string>
+    <string name="capture_saved">Saved to FloatNote</string>
+    <string name="capture_empty">Nothing to save</string>
     <string name="empty_title">No notes yet</string>
     <string name="empty_message">Tap New note, or turn on the floating bubble and start typing anywhere.</string>
     <string name="note_deleted">Note deleted</string>

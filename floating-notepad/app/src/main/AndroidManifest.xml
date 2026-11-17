@@ -35,6 +35,28 @@
             android:parentActivityName=".ui.MainActivity"
             android:windowSoftInputMode="adjustResize" />
 
+        <!-- Save text from any app: the Share sheet, and "Save to FloatNote" in the
+             text-selection menu. No UI: it saves, confirms with a toast, and closes. -->
+        <activity
+            android:name=".ui.CaptureActivity"
+            android:excludeFromRecents="true"
+            android:exported="true"
+            android:label="@string/capture_label"
+            android:noHistory="true"
+            android:taskAffinity=""
+            android:theme="@style/Theme.FloatNote.Invisible">
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="text/plain" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.PROCESS_TEXT" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="text/plain" />
+            </intent-filter>
+        </activity>
+
         <activity
             android:name=".ui.SupportActivity"
             android:exported="false"

@@ -38,9 +38,11 @@ class NoteRepository(context: Context) {
         load()
     }
 
-    /** Most recently edited first. */
+    /** Pinned notes first, then most recently edited first. */
     val all: List<Note>
-        get() = notes.values.sortedByDescending { it.updatedAt }
+        get() = notes.values.sortedWith(
+            compareByDescending<Note> { it.pinned }.thenByDescending { it.updatedAt },
+        )
 
     /** Newest first; a stable order for paging through notes while they are being edited. */
     val byCreation: List<Note>
@@ -75,6 +77,29 @@ class NoteRepository(context: Context) {
         notes[id] = old?.copy(title = title, body = body, updatedAt = now)
             ?: Note(id, title, body, now, now)
         lastId = max(lastId, id)
+        changed()
+    }
+
+    /**
+     * Saves [text] captured from another app (shared or selected text) as a new note.
+     * The first line becomes the title when the text has more than one line.
+     * Does not change which note the floating bubble shows.
+     */
+    fun createFrom(text: String, title: String = ""): Note? {
+        val body = text.trim()
+        if (body.isEmpty()) return null
+        val now = System.currentTimeMillis()
+        val note = Note(nextId(now), title.trim(), body, now, now)
+        notes[note.id] = note
+        changed()
+        return note
+    }
+
+    fun setPinned(id: Long, pinned: Boolean) {
+        val old = notes[id] ?: return
+        if (old.pinned == pinned) return
+        // Pinning is not an edit, so the "edited" time stays as it was.
+        notes[id] = old.copy(pinned = pinned)
         changed()
     }
 
@@ -135,6 +160,7 @@ class NoteRepository(context: Context) {
                         body = o.optString("body"),
                         createdAt = o.optLong("createdAt"),
                         updatedAt = o.optLong("updatedAt"),
+                        pinned = o.optBoolean("pinned", false),
                     )
                     notes[note.id] = note
                     lastId = max(lastId, note.id)
@@ -172,7 +198,8 @@ class NoteRepository(context: Context) {
                     .put("title", note.title)
                     .put("body", note.body)
                     .put("createdAt", note.createdAt)
-                    .put("updatedAt", note.updatedAt),
+                    .put("updatedAt", note.updatedAt)
+                    .put("pinned", note.pinned),
             )
         }
         return JSONObject().put("version", 1).put("notes", array).toString()
