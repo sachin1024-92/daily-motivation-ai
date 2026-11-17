@@ -1,6 +1,6 @@
-# 🚀 Daily Motivation AI
+# 🚀 Daily Motivation
 
-**Grok-powered daily motivation, habit tracking, focus timers & AI encouragement app.**
+**Daily motivation, habit tracking, focus timers & AI encouragement app.**
 
 Built with Flutter. Designed for real daily use and future Play Store monetization.
 
