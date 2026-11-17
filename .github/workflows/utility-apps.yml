@@ -53,7 +53,7 @@ jobs:
           UPLOAD_KEYSTORE_PASSWORD: ${{ secrets.UPLOAD_KEYSTORE_PASSWORD }}
           UPLOAD_KEY_ALIAS: ${{ secrets.UPLOAD_KEY_ALIAS }}
           UPLOAD_KEY_PASSWORD: ${{ secrets.UPLOAD_KEY_PASSWORD }}
-        run: ./gradlew --no-daemon --stacktrace testDebugUnitTest assembleDebug assembleRelease bundleRelease lintDebug
+        run: ./gradlew --no-daemon --continue testDebugUnitTest assembleDebug assembleRelease bundleRelease lintDebug
 
       - name: Collect the apps
         run: |

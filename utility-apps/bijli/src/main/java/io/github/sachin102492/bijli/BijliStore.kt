@@ -107,7 +107,7 @@ class BijliModel(private val store: BijliStore) {
     }
 
     /** Starts a billing cycle from the reading printed on the latest bill. */
-    fun setStart(r: Reading) {
+    fun beginCycle(r: Reading) {
         start = r
         store.start = r
         readings = readings.filter { it.epochDay > r.epochDay && it.value >= r.value }

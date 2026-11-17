@@ -226,7 +226,7 @@ private fun MonthTab(model: BijliModel) {
             title = "Reading on your latest bill",
             initialDay = model.latest?.epochDay ?: today(),
             onDismiss = { askStart = false },
-            onSave = { model.setStart(it); askStart = false; null },
+            onSave = { model.beginCycle(it); askStart = false; null },
         )
     }
     if (askReading) {
