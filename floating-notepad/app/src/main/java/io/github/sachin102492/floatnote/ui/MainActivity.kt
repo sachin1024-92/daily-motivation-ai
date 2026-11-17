@@ -42,7 +42,7 @@ class MainActivity : AppCompatActivity(), NoteRepository.Listener {
         onClick = { openEditor(it.id) },
         onLongClick = { togglePin(it) },
     )
-    private var query = ""
+    private var searchQuery = ""
     private lateinit var emptyTitle: TextView
     private lateinit var emptyMessage: TextView
     private lateinit var ads: Ads
@@ -74,7 +74,7 @@ class MainActivity : AppCompatActivity(), NoteRepository.Listener {
                     }
 
                     override fun onQueryTextChange(text: String?): Boolean {
-                        query = text.orEmpty()
+                        searchQuery = text.orEmpty()
                         refreshNotes()
                         return true
                     }
@@ -174,10 +174,10 @@ class MainActivity : AppCompatActivity(), NoteRepository.Listener {
     }
 
     private fun refreshNotes() {
-        val visible = notes.all.filter { !it.isBlank && it.matches(query) }
+        val visible = notes.all.filter { !it.isBlank && it.matches(searchQuery) }
         adapter.submitList(visible)
         emptyView.visibility = if (visible.isEmpty()) View.VISIBLE else View.GONE
-        val searching = query.isNotBlank()
+        val searching = searchQuery.isNotBlank()
         emptyTitle.setText(if (searching) R.string.search_empty_title else R.string.empty_title)
         emptyMessage.setText(if (searching) R.string.search_empty_message else R.string.empty_message)
     }
