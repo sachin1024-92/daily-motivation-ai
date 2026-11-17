@@ -19,14 +19,22 @@ shot() {
   echo "  screenshot: $1"
 }
 
-tap() { # tap the first element whose text contains $1
-  local point
-  for _ in 1 2 3 4 5; do
+SIZE=$(adb shell wm size | grep -oE '[0-9]+x[0-9]+' | tail -1)
+W=${SIZE%x*}
+H=${SIZE#*x}
+
+tap() { # tap the first element whose text contains $1, scrolling down to find it if needed
+  local point=""
+  for attempt in 1 2 3 4 5 6 7; do
     adb shell uiautomator dump /sdcard/ui.xml >/dev/null 2>&1
     point=$(adb shell cat /sdcard/ui.xml | python3 "$HERE/tap_point.py" "$1") && break
-    sleep 2
+    point=""
+    if [ "$attempt" -ge 2 ]; then
+      adb shell input swipe $((W / 2)) $((H * 7 / 10)) $((W / 2)) $((H * 3 / 10)) 300
+    fi
+    sleep 1
   done
-  if [ -z "${point:-}" ]; then
+  if [ -z "$point" ]; then
     echo "::warning::Couldn't find \"$1\" on screen"
     return 1
   fi
