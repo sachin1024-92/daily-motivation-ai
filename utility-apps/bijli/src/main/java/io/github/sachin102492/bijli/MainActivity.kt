@@ -39,7 +39,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.ScrollableTabRow
+import androidx.compose.material3.PrimaryTabRow
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
@@ -133,9 +133,13 @@ fun BijliApp(model: BijliModel) {
         },
     ) { padding ->
         Column(Modifier.fillMaxSize().padding(padding)) {
-            ScrollableTabRow(selectedTabIndex = tab, edgePadding = 8.dp) {
-                listOf("This month", "Readings", "Tenants", "Rates").forEachIndexed { i, label ->
-                    Tab(selected = tab == i, onClick = { tab = i }, text = { Text(label, maxLines = 1, softWrap = false) })
+            PrimaryTabRow(selectedTabIndex = tab) {
+                listOf("Month", "Readings", "Tenants", "Rates").forEachIndexed { i, label ->
+                    Tab(
+                        selected = tab == i,
+                        onClick = { tab = i },
+                        text = { Text(label, maxLines = 1, style = MaterialTheme.typography.labelMedium) },
+                    )
                 }
             }
             when (tab) {

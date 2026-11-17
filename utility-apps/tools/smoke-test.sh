@@ -49,6 +49,7 @@ check() { # $1 package, $2 app name
     FAIL=1
   elif [ -z "$(adb shell pidof "$1" | tr -d '\r')" ]; then
     echo "::error::$2 is not running"
+    adb logcat -d | grep -E "AndroidRuntime|FATAL|$1" | tail -60
     FAIL=1
   else
     echo "  OK: $2 is running with no crash"
@@ -90,7 +91,7 @@ if install bijli-debug.apk "Bijli Guard"; then
   tap "Readings" && shot bijli-2-readings 2
   tap "Tenants" && shot bijli-3-tenants 2
   tap "Rates" && shot bijli-4-rates 2
-  tap "This month" && tap "Add today's meter reading" && shot bijli-5-add-reading 2
+  tap "Month" && tap "Add today's meter reading" && shot bijli-5-add-reading 2
   adb shell input keyevent KEYCODE_BACK
   check "$P" "Bijli Guard"
 fi
