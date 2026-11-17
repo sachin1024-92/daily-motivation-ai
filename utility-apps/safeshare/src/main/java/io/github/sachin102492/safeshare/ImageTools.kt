@@ -16,6 +16,9 @@ import android.os.Build
 import android.provider.MediaStore
 import androidx.core.content.FileProvider
 import androidx.exifinterface.media.ExifInterface
+import com.google.android.gms.common.api.OptionalModuleApi
+import com.google.android.gms.common.moduleinstall.ModuleInstall
+import com.google.android.gms.common.moduleinstall.ModuleInstallRequest
 import com.google.android.gms.tasks.Task
 import com.google.mlkit.vision.barcode.BarcodeScannerOptions
 import com.google.mlkit.vision.barcode.BarcodeScanning
@@ -23,6 +26,7 @@ import com.google.mlkit.vision.barcode.common.Barcode
 import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.text.TextRecognition
 import com.google.mlkit.vision.text.latin.TextRecognizerOptions
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.suspendCancellableCoroutine
 import java.io.File
 import java.io.FileOutputStream
@@ -159,44 +163,75 @@ data class Detection(val masks: List<Mask>, val note: String?)
  * reports a note and the user can still hide areas by hand.
  */
 object IdDetector {
-    suspend fun detect(bitmap: Bitmap): Detection {
+    /**
+     * [onStatus] reports progress while Google Play services fetches the readers the first time
+     * (for apps not installed from the Play Store, that only starts when the app asks for it).
+     */
+    suspend fun detect(context: Context, bitmap: Bitmap, onStatus: (String) -> Unit = {}): Detection {
         val image = InputImage.fromBitmap(bitmap, 0)
         val masks = mutableListOf<Mask>()
         var note: String? = null
-
         val reader = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
-        try {
-            val text = reader.process(image).await()
-            val lines = text.textBlocks.flatMap { block ->
-                block.lines.map { line ->
-                    Line(
-                        line.elements.mapNotNull { e ->
-                            e.boundingBox?.let { r -> Word(e.text, Box(r.left, r.top, r.right, r.bottom)) }
-                        },
-                    )
-                }
-            }
-            masks += IdMasker.findNumberMasks(lines)
-        } catch (e: Exception) {
-            note = "The text reader isn't ready yet (Google Play services downloads it once, needs internet). " +
-                "You can still hide parts by hand with \"Hide more\"."
-        } finally {
-            reader.close()
-        }
-
         val scanner = BarcodeScanning.getClient(
             BarcodeScannerOptions.Builder().setBarcodeFormats(Barcode.FORMAT_QR_CODE).build(),
         )
         try {
-            scanner.process(image).await().forEach { code ->
-                code.boundingBox?.let { r -> masks += Mask(Box(r.left, r.top, r.right, r.bottom).padded(6), MaskKind.QR_CODE) }
+            if (!ensureReaders(context, reader, scanner, onStatus)) {
+                return Detection(
+                    emptyList(),
+                    "The on-device reader isn't ready yet (Google Play services downloads it once and needs internet). " +
+                        "You can still hide parts by hand with \"Hide more\", or go back and try again in a minute.",
+                )
             }
-        } catch (e: Exception) {
-            if (note == null) note = "QR codes couldn't be checked automatically. Hide them by hand if needed."
+            try {
+                val text = reader.process(image).await()
+                val lines = text.textBlocks.flatMap { block ->
+                    block.lines.map { line ->
+                        Line(
+                            line.elements.mapNotNull { e ->
+                                e.boundingBox?.let { r -> Word(e.text, Box(r.left, r.top, r.right, r.bottom)) }
+                            },
+                        )
+                    }
+                }
+                masks += IdMasker.findNumberMasks(lines)
+            } catch (e: Exception) {
+                note = "The ID number couldn't be read automatically. Hide it by hand with \"Hide more\"."
+            }
+            try {
+                scanner.process(image).await().forEach { code ->
+                    code.boundingBox?.let { r -> masks += Mask(Box(r.left, r.top, r.right, r.bottom).padded(6), MaskKind.QR_CODE) }
+                }
+            } catch (e: Exception) {
+                if (note == null) note = "QR codes couldn't be checked automatically. Hide them by hand if needed."
+            }
         } finally {
+            reader.close()
             scanner.close()
         }
         return Detection(masks, note)
+    }
+
+    /** Makes sure Google Play services has the text and QR readers, asking for them if needed. */
+    private suspend fun ensureReaders(
+        context: Context,
+        reader: OptionalModuleApi,
+        scanner: OptionalModuleApi,
+        onStatus: (String) -> Unit,
+    ): Boolean {
+        val client = ModuleInstall.getClient(context)
+        return try {
+            if (client.areModulesAvailable(reader, scanner).await().areModulesAvailable()) return true
+            onStatus("Getting the on-device reader ready (one time only)…")
+            client.installModules(ModuleInstallRequest.newBuilder().addApi(reader).addApi(scanner).build()).await()
+            repeat(45) {
+                delay(2_000)
+                if (client.areModulesAvailable(reader, scanner).await().areModulesAvailable()) return true
+            }
+            false
+        } catch (e: Exception) {
+            false
+        }
     }
 
     private suspend fun <T> Task<T>.await(): T = suspendCancellableCoroutine { cont ->

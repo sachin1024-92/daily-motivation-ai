@@ -104,7 +104,18 @@ if install safeshare-debug.apk "SafeShare ID"; then
   # Opens the bundled, clearly fake sample card (debug builds only).
   adb shell am start -n "$P/$A" --ez demo_sample true >/dev/null
   shot safeshare-2-detecting 4
-  shot safeshare-3-masked 25
+  # The first run asks Google Play services for the on-device reader; wait for the result.
+  for _ in $(seq 1 40); do
+    adb shell uiautomator dump /sdcard/ui.xml >/dev/null 2>&1
+    if adb shell cat /sdcard/ui.xml | grep -q -E 'Hidden:|Nothing found|reader isn.t ready'; then break; fi
+    sleep 3
+  done
+  if adb shell cat /sdcard/ui.xml | grep -q 'Hidden:'; then
+    echo "  OK: SafeShare hid parts of the sample card automatically"
+  else
+    echo "::warning::SafeShare did not hide anything automatically on the emulator"
+  fi
+  shot safeshare-3-masked 1
   if tap "Only for"; then
     adb shell input text "Hotel%sRaj%scheck-in"
     adb shell input keyevent KEYCODE_BACK

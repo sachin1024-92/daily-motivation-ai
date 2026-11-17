@@ -1,4 +1,4 @@
-@file:OptIn(ExperimentalMaterial3Api::class)
+@file:OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 
 package io.github.sachin102492.bijli
 
@@ -8,6 +8,8 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -37,7 +39,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.PrimaryTabRow
+import androidx.compose.material3.ScrollableTabRow
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
@@ -131,9 +133,9 @@ fun BijliApp(model: BijliModel) {
         },
     ) { padding ->
         Column(Modifier.fillMaxSize().padding(padding)) {
-            PrimaryTabRow(selectedTabIndex = tab) {
+            ScrollableTabRow(selectedTabIndex = tab, edgePadding = 8.dp) {
                 listOf("This month", "Readings", "Tenants", "Rates").forEachIndexed { i, label ->
-                    Tab(selected = tab == i, onClick = { tab = i }, text = { Text(label, maxLines = 1) })
+                    Tab(selected = tab == i, onClick = { tab = i }, text = { Text(label, maxLines = 1, softWrap = false) })
                 }
             }
             when (tab) {
@@ -385,14 +387,14 @@ private fun TenantsTab(model: BijliModel, onEdit: (Tenant) -> Unit) {
                     }
                     Text("${num(t.previous)} → ${num(t.current)} = ${num(t.units)} units × ₹${num(t.rate)}" +
                         if (t.fixedShare > 0) " + ₹${num(t.fixedShare)}" else "")
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         if (t.phone.isNotBlank()) {
                             Button(onClick = { openWhatsApp(context, t.phone, t.billMessage(month)) }) { Text("WhatsApp") }
                         }
                         OutlinedButton(onClick = { shareText(context, t.billMessage(month), "Send bill") }) { Text("Share") }
-                        TextButton(onClick = { onEdit(t) }) { Text("Edit") }
+                        OutlinedButton(onClick = { onEdit(t) }) { Text("Edit") }
                     }
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         TextButton(onClick = { model.startNewMonth(t.id) }) { Text("Paid: start next month") }
                         TextButton(onClick = { model.deleteTenant(t.id) }) { Text("Remove") }
                     }

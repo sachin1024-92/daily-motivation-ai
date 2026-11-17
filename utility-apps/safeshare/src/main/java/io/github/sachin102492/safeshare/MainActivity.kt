@@ -236,8 +236,9 @@ private fun EditorScreen(bitmap: Bitmap, onClose: () -> Unit) {
     var purpose by rememberSaveable { mutableStateOf("") }
     val scope = rememberCoroutineScope()
 
+    var status by remember(bitmap) { mutableStateOf("Looking for the ID number and QR code…") }
     LaunchedEffect(bitmap) {
-        val result = IdDetector.detect(bitmap)
+        val result = IdDetector.detect(context, bitmap) { status = it }
         masks.clear()
         masks.addAll(result.masks)
         note = result.note
@@ -267,7 +268,7 @@ private fun EditorScreen(bitmap: Bitmap, onClose: () -> Unit) {
             val manual = masks.count { it.kind == MaskKind.MANUAL }
             Text(
                 when {
-                    detecting -> "Looking for the ID number and QR code…"
+                    detecting -> status
                     masks.isEmpty() -> "Nothing found automatically. Tap \"Hide more\" and drag over anything private."
                     else -> "Hidden: " + listOfNotNull(
                         if (ids > 0) "$ids part(s) of the ID number" else null,

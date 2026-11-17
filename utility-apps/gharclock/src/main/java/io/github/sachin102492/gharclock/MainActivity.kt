@@ -192,11 +192,12 @@ private fun HomeScreen(
 private fun ItemCard(item: HomeItem, today: Long, onDoneToday: () -> Unit, onDoneOn: () -> Unit, onOpen: () -> Unit) {
     val context = LocalContext.current
     val due = Schedule.due(item, today)
+    fun days(n: Long) = if (n == 1L) "1 day" else "$n days"
     val (status, color) = when (due.state) {
-        DueState.OVERDUE -> "Overdue by ${-(due.daysLeft ?: 0)} days" to MaterialTheme.colorScheme.errorContainer
-        DueState.DUE_SOON -> (if (due.daysLeft == 0L) "Due today" else "Due in ${due.daysLeft} days (${formatDay(due.nextEpochDay ?: today)})") to
+        DueState.OVERDUE -> "Overdue by ${days(-(due.daysLeft ?: 0))}" to MaterialTheme.colorScheme.errorContainer
+        DueState.DUE_SOON -> (if (due.daysLeft == 0L) "Due today" else "Due in ${days(due.daysLeft ?: 0)} (${formatDay(due.nextEpochDay ?: today)})") to
             MaterialTheme.colorScheme.tertiaryContainer
-        DueState.OK -> "Next: ${formatDay(due.nextEpochDay ?: today)} · in ${due.daysLeft} days" to MaterialTheme.colorScheme.surfaceVariant
+        DueState.OK -> "Next: ${formatDay(due.nextEpochDay ?: today)} · in ${days(due.daysLeft ?: 0)}" to MaterialTheme.colorScheme.surfaceVariant
         DueState.NOT_STARTED -> "Tap \"Other date\" and enter when it was last done" to MaterialTheme.colorScheme.surfaceVariant
     }
     val learned = Schedule.learnedInterval(item)
