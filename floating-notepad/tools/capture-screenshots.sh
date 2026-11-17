@@ -54,9 +54,12 @@ shot 1-notes-list 3
 tap_desc "Search notes" || true
 sleep 1; adb shell input text "efficiency"; adb shell input keyevent 111 || true
 shot 2-search 2
-adb shell input keyevent 4; adb shell input keyevent 4; sleep 1
+adb shell input keyevent 4; sleep 1
 
 # 3. Editor
+adb shell am force-stop $PKG
+adb shell am start -W -n $PKG/io.github.sachin102492.floatnote.ui.MainActivity >/dev/null
+sleep 2
 tap_text "Lecture notes" || true
 shot 3-editor 3
 adb shell input keyevent 4; sleep 1
@@ -66,6 +69,11 @@ adb shell am start -W -n $PKG/io.github.sachin102492.floatnote.ui.MainActivity -
 sleep 3
 adb shell am start -W -a android.settings.SETTINGS >/dev/null
 shot 4-bubble-over-app 3
-tap_desc "FloatNote bubble" || true
+adb shell dumpsys window windows | grep -iE "Window #|mFrame|floatnote" | grep -iB1 -A1 floatnote | head -20 || true
+if ! tap_desc "FloatNote bubble"; then
+  # Fall back to the notification: tapping it opens the notepad.
+  adb shell cmd statusbar expand-notifications; sleep 2
+  tap_text "FloatNote is floating" || tap_text "Tap to open your note" || true
+fi
 shot 5-notepad-over-app 3
 ls -la shots
