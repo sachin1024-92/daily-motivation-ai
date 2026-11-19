@@ -71,6 +71,10 @@ flutter run --dart-define=GROK_API_KEY=xai-your-key
 - [ ] Live Grok streaming via a small proxy
 - [ ] Flutter Play Store release (after FloatNote launch learnings)
 
+## Also open: utility apps (PR #7)
+
+Branch [`claude/utility-apps`](https://github.com/sachin1024-92/daily-motivation-ai/pull/7) adds four more Kotlin apps (Seeti, Bijli Guard, SafeShare ID, Ghar Clock) with passing CI, emulator walks, and Play bundles. Prefer extracting them to their own repos before a long-term merge — keep FloatNote’s listing clean.
+
 ## License
 
 MIT — part of [@sachin1024-92](https://github.com/sachin1024-92) open-source tools.
