@@ -1,84 +1,76 @@
-# 🚀 Daily Motivation
+# Daily Motivation AI + FloatNote
 
-**Daily motivation, habit tracking, focus timers & AI encouragement app.**
+Two products in one repository:
 
-Built with Flutter. Designed for real daily use and future Play Store monetization.
+1. **FloatNote** (Kotlin) — Play-ready floating notepad for Android  
+2. **Daily Motivation AI** (Flutter) — offline-first habits, quotes, focus timer, AI chat
 
-## Current Status (November 2026)
+---
+
+## FloatNote (ship first)
+
+[`floating-notepad/`](floating-notepad) is a free, open-source notepad bubble that floats over any app and **autosaves on every keystroke**. Notes never leave the device.
+
+| | |
+|---|---|
+| Package | `io.github.sachin102492.floatnote` |
+| Version | **1.2.0** (versionCode 3) |
+| Stack | Kotlin, Views + Material 3, minSdk 26, targetSdk 36 |
+| Flavours | `play` (AdMob banner + Play Billing tips) · `foss` (no Google SDKs, no Internet) |
+| CI | APK, AAB, FOSS APK on every push; tag → GitHub Release + Play internal upload |
+
+Full feature list, signing, and Play Console steps: [floating-notepad/README.md](floating-notepad/README.md) · [PLAY_STORE.md](floating-notepad/PLAY_STORE.md)
+
+```bash
+cd floating-notepad
+./gradlew assemblePlayDebug
+```
+
+Artifacts: Actions → **FloatNote Android** → `FloatNote.apk` / `FloatNote-foss.apk` / `FloatNote.aab`
+
+---
+
+## Daily Motivation AI (Flutter MVP)
+
+Grok-ready daily motivation app with quotes, habit streaks, focus timers and AI encouragement.
+
+### Status (November 2026)
 
 - Core MVP complete (quotes, habits, focus timer, AI chat structure)
-- Offline-first architecture ready
-- Prepared for real Grok / xAI API integration
-- CI runs analysis and tests, and builds a test APK on every push
-- Habit streaks follow the calendar: one tick per day, reset after a missed day
-- Next priority: Play Store release (see docs/PLAY_STORE.md)
+- Offline-first; habit streaks follow the calendar (one tick per day)
+- CI runs analysis/tests and builds a test APK on every push
+- Live Grok needs a server-side key — do not bake keys into the APK
+- Play Store path for this Flutter app: [docs/PLAY_STORE.md](docs/PLAY_STORE.md)
 
-## 🗒️ Also in this repo: FloatNote
+### Features
 
-[`floating-notepad/`](floating-notepad) contains **FloatNote**, a free, open-source Android notepad bubble that floats over any app and autosaves as you type. See its [README](floating-notepad/README.md) for downloads and build steps.
+- Daily inspirational quotes (local + AI-ready)
+- Habit tracking with real streaks
+- Focus / Pomodoro timer
+- AI chat (offline responses; Grok via `--dart-define`)
+- Dark / light theme
 
-## Features
+### Tech
 
-- 📅 Daily inspirational quotes (local + AI-ready)
-- ✅ Habit tracking with streaks
-- ⏱️ Focus / Pomodoro timer with sessions
-- 🤖 AI Chat powered by Grok (structure ready for live API)
-- 📊 Simple progress & mood check-ins
-- 🔒 Offline-first with local persistence
-- Dark / light theme support
-
-## Tech Stack
-
-- Flutter 3.x / Dart
-- Riverpod for state management
-- SharedPreferences for local storage
-- HTTP client ready for Grok API
-- Architecture prepared for Firebase (Auth, Firestore, Analytics)
-
-## Getting Started
+- Flutter 3.x / Dart · Riverpod · SharedPreferences · HTTP for Grok
 
 ```bash
 git clone https://github.com/sachin1024-92/daily-motivation-ai.git
 cd daily-motivation-ai
 flutter pub get
 flutter run
-```
-
-### Get an installable APK
-
-Every push and pull request builds a release APK in GitHub Actions. Open the run under the **Actions** tab and download the `daily-motivation-ai-apk-…` artifact to install it on a phone.
-
-That APK is signed with a debug key, which is fine for testing but **not accepted by the Play Store**. See [docs/PLAY_STORE.md](docs/PLAY_STORE.md) for what is still needed before publishing.
-
-## Configuration
-
-The AI chat works offline with built-in responses. To use live Grok responses, pass a key at build time (it is never stored in the repo):
-
-```bash
+# optional live Grok:
 flutter run --dart-define=GROK_API_KEY=xai-your-key
 ```
 
-CI builds never include a key; the APKs it produces run in offline mode.
-
-A key compiled into an app can be extracted from the APK. Before a public release, route chat requests through a small server of your own that holds the key.
-
-## Roadmap
+### Roadmap
 
 - [x] Core screens & local state
 - [x] GitHub Actions CI (analyze + tests)
-- [ ] Live Grok streaming responses
-- [ ] Firebase Auth + cloud habit sync
-- [ ] Beautiful onboarding + polish
-- [ ] Play Store release (free + premium tiers)
-- [ ] Widgets & notifications
-
-## Why This Project Matters
-
-Most motivation apps are either too basic or too subscription-heavy.  
-This one combines practical habit tools with real AI encouragement — built by someone who actually uses it daily while doing a Ph.D. and building side income.
+- [x] FloatNote native Android app (Play pipeline)
+- [ ] Live Grok streaming via a small proxy
+- [ ] Flutter Play Store release (after FloatNote launch learnings)
 
 ## License
 
-MIT
-
-Built in public with Grok. Part of [@sachin1024-92](https://github.com/sachin1024-92) open source tools.
+MIT — part of [@sachin1024-92](https://github.com/sachin1024-92) open-source tools.
