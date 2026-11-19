@@ -2,9 +2,26 @@ name: Flutter CI/CD
 
 on:
   push:
-    branches: [ main, master ]
+    branches: [main]
+    paths:
+      - 'lib/**'
+      - 'test/**'
+      - 'pubspec.yaml'
+      - 'pubspec.lock'
+      - 'analysis_options.yaml'
+      - 'android/**'
+      - '.github/workflows/flutter-ci.yml'
   pull_request:
-    branches: [ main, master ]
+    branches: [main]
+    paths:
+      - 'lib/**'
+      - 'test/**'
+      - 'pubspec.yaml'
+      - 'pubspec.lock'
+      - 'analysis_options.yaml'
+      - 'android/**'
+      - '.github/workflows/flutter-ci.yml'
+  workflow_dispatch:
 
 jobs:
   build-and-test:
@@ -12,11 +29,9 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Setup Java
-        uses: actions/setup-java@v4
+      - uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '17'
@@ -24,6 +39,8 @@ jobs:
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
+          # Pin so Gradle/Kotlin plugin resolution stays stable on ubuntu-latest
+          flutter-version: '3.24.5'
           channel: 'stable'
           cache: true
 
@@ -31,25 +48,19 @@ jobs:
         run: flutter pub get
 
       - name: Code analysis
-        # Fail on errors and warnings; style hints (info) are reported but do not fail the build.
         run: flutter analyze --no-fatal-infos
 
       - name: Run tests
         run: flutter test
 
-      # The repo holds only the Dart source. Until the android/ folder is
-      # committed, generate it here so every run still produces an installable APK.
       - name: Generate Android project if missing
         if: hashFiles('android/app/build.gradle', 'android/app/build.gradle.kts') == ''
         run: flutter create . --platforms=android --org com.sachinmajhee --project-name daily_motivation_ai
 
       - name: Build release APK
-        # No API key is ever built into the APK: anything compiled into an app can be
-        # extracted by whoever downloads it. The app runs in offline mode.
         run: flutter build apk --release
 
-      - name: Upload APK
-        uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v4
         with:
           name: daily-motivation-ai-apk-${{ github.run_number }}
           path: build/app/outputs/flutter-apk/app-release.apk
